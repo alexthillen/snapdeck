@@ -20,7 +20,6 @@
     "@mantine/notifications": "^8.0.2",
     "@tabler/icons-react": "^3.34.0",
     "file-saver": "^2.0.5",
-    "firebase": "^11.8.1",
     "genanki-js": "^2.0.0",
     "jszip": "^3.10.1",
     "react": "^19.2.0",

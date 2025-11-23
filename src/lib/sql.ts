@@ -2,7 +2,7 @@ import initSqlJs from 'sql.js'
 import type { Database, SqlJsStatic } from 'sql.js'
 
 const config = {
-  locateFile: (filename: string) => `/sql/${filename}`,
+  locateFile: (filename: string) => `${import.meta.env.BASE_URL}sql/${filename}`,
 }
 
 let SQL: SqlJsStatic | null = null

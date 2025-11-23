@@ -43,7 +43,7 @@ function App() {
       <Router>
         <Routes>
           <Route
-            path="/snapdeck/"
+            path={`${import.meta.env.BASE_URL}`} 
             element={
               <Layout>
                 <CreateDeck />
