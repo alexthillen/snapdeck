@@ -1,7 +1,7 @@
 import { BasicCardModel } from '../models/anki/basic'
 import { ClozeCardModel } from '../models/anki/cloze'
 import { Deck, Package } from 'genanki-js'
-import { createDatabase } from '../lib/sql-direct'
+import { createDatabase } from '../lib/sql'
 
 type DeckInstance = InstanceType<typeof Deck>
 type DeckNote = Parameters<DeckInstance['addNote']>[0]
