@@ -17,7 +17,7 @@ const CARD_BODY =
   String.raw`\r?\nDIFFICULTY:\s*(?<difficulty>\d+(?:\.\d+)?)\/10` +
   String.raw`(?:\s*\r?\nTAGS:\s*(?<tags>[^\r\n]*))?`
 
-const CARD_PATTERN = new RegExp(`^${CARD_BODY}\s*$`, 'ims')
+const CARD_PATTERN = new RegExp(String.raw`^${CARD_BODY}\s*$`, 'ims')
 const CARD_BLOCK_PATTERN = new RegExp(CARD_BODY, 'gims')
 
 export class ParserError extends Error {

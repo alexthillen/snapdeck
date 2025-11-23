@@ -46,7 +46,7 @@ export function GeminiApiKeyForm({
         onClick={() => setOpened((o) => !o)} 
         p="md" 
         w="100%"
-        style={(_) => ({
+        style={() => ({
           backgroundColor: opened ? 'transparent' : 'var(--mantine-color-gray-0)',
           transition: 'background-color 0.2s ease',
           '&:hover': {

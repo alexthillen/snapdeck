@@ -20,8 +20,19 @@ export interface GeminiResponse {
 const buildUrl = (model: string) =>
   `${GEMINI_BASE_URL}/models/${model}:generateContent`
 
-const extractText = (payload: any): string => {
-  const candidates = payload?.candidates
+type GeminiPart = {
+  text?: string
+  [key: string]: unknown
+}
+
+type GeminiCandidate = {
+  content?: {
+    parts?: GeminiPart[]
+  }
+}
+
+const extractText = (payload: unknown): string => {
+  const candidates = (payload as { candidates?: GeminiCandidate[] })?.candidates
   if (!Array.isArray(candidates)) {
     return ''
   }
@@ -33,7 +44,7 @@ const extractText = (payload: any): string => {
     if (!Array.isArray(parts)) {
       return
     }
-    parts.forEach((part: any) => {
+    parts.forEach(part => {
       if (typeof part?.text === 'string') {
         texts.push(part.text)
       }

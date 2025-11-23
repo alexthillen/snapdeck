@@ -4,28 +4,28 @@ declare module 'sql.js' {
   }
 
   export interface Database {
-    run(sql: string, params?: any[]): void
-    exec(sql: string, params?: any[]): QueryExecResult[]
+    run(sql: string, params?: unknown[]): void
+    exec(sql: string, params?: unknown[]): QueryExecResult[]
     each(
       sql: string,
-      params: any[] | undefined,
-      callback: (row: any) => void,
+      params: unknown[] | undefined,
+      callback: (row: Record<string, unknown>) => void,
       done: () => void,
     ): void
-    prepare(sql: string, params?: any[]): Statement
+    prepare(sql: string, params?: unknown[]): Statement
     export(): Uint8Array
     close(): void
     getRowsModified(): number
-    create_function(name: string, func: Function): void
+    create_function(name: string, func: (...args: unknown[]) => unknown): void
   }
 
   export interface Statement {
-    bind(params?: any[]): boolean
+    bind(params?: unknown[]): boolean
     step(): boolean
-    get(params?: any[]): any[]
+    get(params?: unknown[]): unknown[]
     getColumnNames(): string[]
-    getAsObject(params?: any[]): any
-    run(params?: any[]): void
+    getAsObject(params?: unknown[]): Record<string, unknown>
+    run(params?: unknown[]): void
     reset(): void
     freemem(): void
     free(): void
@@ -33,7 +33,7 @@ declare module 'sql.js' {
 
   export interface QueryExecResult {
     columns: string[]
-    values: any[][]
+    values: unknown[][]
   }
 
   export interface Config {
