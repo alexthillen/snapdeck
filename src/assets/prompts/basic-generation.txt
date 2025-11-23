@@ -1,0 +1,68 @@
+You are an expert educator. Create {num_cards} **basic flashcards** for the following PDF.
+
+---
+
+### Instructions
+
+* The attached PDF might include off-topic sections such as course organization details. Please focus only on the relevant content.
+* The flashcards must be well-suited for spaced repetition. This means they should be concise and **atomic**.
+* The individual fields can and should use Markdown for syntax highlighting (e.g., code blocks, inline code, bold text). Be encouraged to make use of these features! Look at the examples.
+* If you know of extra information that might help to better remember the facts, feel encouraged to add it to in EXTRA.
+* Cover all the key concepts from the attached PDF. Prioritize all the most important concepts.
+* Don't embed your response in a Markdown JSON code block.
+* If the attached document contains multi line code blocks it is in general good to have multi line code blocks in **some** of the flashcards.
+* Math must be correctly displayed using Markdown inline math ($) and equations ($$).
+    * The equation marks should correctly surround the entire relevant expression. E.g. writing "H$_2$O" is invalid, while writing $H_2O$ or $\text{{H}}_2\text{{O}}$ are both valid.
+* Code must be correctly displayed using Markdown inline code (`inline-code`) or code blocks 
+(
+```[lang]
+print("Hello World!)
+```
+).
+* Escape Markdown characters when they are content and not markup. For example, "I need a $" becomes "I need a \$".
+* Inside markdown math delimiters ("$…$", "$$…$$"), every time you intend a **literal** instance of any of the following characters, prefix it with a backslash so it isn't interpreted as a special latex character:
+"# → \#, $ → \$, % → \%, & → \&, _ → \_, ^ → \^, {{ → \{{, }} → \}}, ~ → \~{{}}   (note the empty braces), \ → \\". This means that you should use "\&" to represent "and" and & to represent an alignment character.
+* If you would like to highlight a word or a part of a sentence, make it *italic* or **bold*.
+* Don't use code blocks or inline code on text that is not representing code!
+* Make sure to use multi-line code blocks in some cards for topics related to coding and programming. They help to provide hands-on experience to the student.
+* Return cards in order of **decreasing** importance and relevance for a potential exam.
+* Make sure to incorporate cards of different difficulty levels (if possible), some easier around 3 and some more difficult around 9 or 10.
+* Use the language used in the attached document.
+* Never embed math inside code. Don't write `x $=$ v`, but instead write $x = v$
+* You can only use latex symbols inside a math inline or display equation. You cannot use latex math inside a code block e.g. ```\leftarrow``` is invalid!
+* Tags are created in the format <StudyProgram>::<Course>::<Chapter>. There are up to 3 tags per card.
+* IMPORTANT: Under no circumstances should you use the examples provided below to generate cards. They should only help you to grasp the format, but not guide the topic of the resulting flashcards. Only refer to the uploaded document when generating cards!
+* Never repeat questions. All questions should differ.
+
+---
+
+### Output Format
+
+A series of Cards, where each card has the following format. This format must be followed precisely.
+
+---
+
+### Output Format Card (DO NOT USE THE FOLLOWING CONTENT IN THE FLASHCARDS YOU GENERATE!!)
+
+FRONT:
+
+(Content of the card, question on the front. Remember to escape markdown markup characters like \$ when they mean "dollar" and not "start equation"!)
+
+BACK:
+
+(Answer to the question on the back. Remember to escape markdown markup characters like \$ when they mean "dollar" and not "start equation"!)
+
+EXTRA:
+
+(Include any additional relevant information that reinforces the concept, offers intuitive explanations, highlights common misconceptions, provides analogies, why the concept is relevant, or connects the idea to prior knowledge. Aim to deepen understanding beyond the core answer.)
+
+DIFFICULTY: (estimated difficulty of answering the card in the format : 1-10/10)
+
+TAGS: (comma-separated Tags associated with the card in the format <StudyProgram>::<Course>::<Chapter>)
+
+---
+
+### Example Output (Important: **Do not refer, nor quote the examples in your answers in any shape or form. They do not serve as additional context. Exclusively use the attached pdf document to guide which topics should be covered.**)
+
+{card_examples}
+

@@ -1,0 +1,23 @@
+/* In your CSS file (e.g., Markdown.module.css or a global stylesheet) */
+.markdown-content p,
+.markdown-content h1,
+.markdown-content h2,
+/* ... and so on for other elements */
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0;
+  padding: 0; /* Or specific padding values */
+}
+
+/* For list items, you might still want some indentation */
+.markdown-content ul li,
+.markdown-content ol li {
+    margin-left: 1.5em; /* Example: adds indentation */
+    padding: 0;
+}
+
+/* For code blocks, you already have customStyle, but you could add padding/margin here too */
+.markdown-content pre {
+    margin: 0; /* Remove default margin from <pre> tag */
+    padding: 0; /* Remove default padding if you want it tighter */
+}

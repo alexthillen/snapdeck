@@ -1,0 +1,71 @@
+## Instructions
+
+You are an expert educator. Create **Anki cloze deletion flashcards** for the following PDF. The number of cards should be {num_cards}.
+
+### Flashcard Quality
+* Flashcards must be **well-suited for spaced repetition**: concise and atomic.
+* Cover all **key concepts** from the attached PDF, prioritizing the most important ones for a potential exam.
+* Incorporate cards of varying difficulty levels (e.g., some easier around 3/10, some more difficult around 9-10/10).
+* Return cards in order of **decreasing importance and relevance** for a potential exam.
+
+### Instructions
+* If the attached document contains multi line code blocks it is in general good to have multi line code blocks in **some** of the flashcards.
+
+### Content & Formatting
+* The attached PDF might include off-topic sections such as course organization details. Please focus only on the relevant content.
+* Use the language from the attached document.
+* **Cloze deletion syntax**: Use {{c1::hidden_text}} for basic cloze and {{c1::hidden_text::hint_text}} for cloze with hints. 
+    * c1, c2, etc., create separate review cards. There can be multiple ci on a single card, e.g. 3x {{c1::cloze1}}, {{c1::cloze2}}, {{c1::cloze3}}.
+* Individual fields **can and should use Markdown** for syntax highlighting (e.g., code blocks, inline code, bold text). Be encouraged to make use of these features! Look at the examples.
+* **Math** must be correctly displayed using Markdown inline math ($) and equations ($$) and latex. This is very important.
+    * The equation marks should correctly surround the entire relevant expression. E.g. writing "H$_2$O" is invalid, while writing $H_2O$ or $\text{{H}}_2\text{{O}}$ are both valid.
+* **Cloze inside Math**: You must never use a cloze inside a math block, but always rewrite it according to the following rule:
+    Incorrect: $\mathbb{E}_{\Theta_k}[||f(y_{k-1}, \Theta_k)||^2] = {{c2::||y_{k-1}||^2}}$ --> 
+    Correct: {{c2::$\mathbb{E}_{\Theta_k}[||f(y_{k-1}, \Theta_k)||^2] = ||y_{k-1}||^2$::$\mathbb{E}_{\Theta_k}[||f(y_{k-1}, \Theta_k)||^2] = ...$}}
+    This is also correct for displaying math: {{c3::$$\mathbb{E}_{\Theta_k}[f(y_{k-1}, \Theta_k)] = 0$$::$$\mathbb{E}_{\Theta_k}[f(y_{k-1}, \Theta_k)] = ...$$}}
+    The cloze part is replace by ..., but the rest is repeated.
+* You can use clozes inside code blocks, e.g. 
+```python
+{c1::print}("Hello World")
+```
+* **Code** must be correctly displayed using Markdown inline code (`inline code`) or code blocks (```[lang]```).
+* **Escape Markdown characters** when they are content, not markup (e.g., "I need a \$" for "I need a $").
+* Inside markdown math delimiters ("$…$", "$$…$$"), every time you intend a **literal** instance of any of the following characters, prefix it with a backslash so it isn't interpreted as a special latex character:
+"# → \#, $ → \$, % → \%, & → \&, _ → \_, ^ → \^, { → \{, } → \}, ~ → \~{}   (note the empty braces), \ → \\". This means that you should use "\&" to represent "and" and & to represent an alignment character.
+* You can only use latex symbols inside a math inline or display equation. You cannot use latex math inside a code block e.g. ```\leftarrow``` is invalid!
+* If you would like to highlight a word or a part of a sentence, make it *italic* or **bold*.
+* Highlighted code snippets can be nice when the topic is related to programming and provide additional context.
+* Make sure to use multi-line code blocks in some cards for topics related to coding and programming. They help to provide hands-on experience to the student.
+* Don't use code blocks or inline code on text that is not representing code!
+* If extra information aids memorization, add it to the EXTRA field.
+* Never embed math inside code. Don't write `x $=$ v`, but instead write $x = v$
+* IMPORTANT: The hint should **never** reveal the hidden text directly, you must not write the answer into the hint field of a cloze deletion. You are encouraged to leave out the hint, but if you add a hint, it should clarify what is requested, but never reveal the answer!
+* IMPORTANT: Under no circumstances should you use the examples provided below to generate cards. They should only help you to grasp the format, but not guide the topic of the resulting flashcards. Only refer to the uploaded document when generating cards!
+* Never repeat questions. All questions should differ.
+
+### Output Format
+
+Do not embed your response in a Markdown JSON code block.
+
+Each card must adhere to the following precise format:
+
+-----
+
+FRONT:
+
+(Content of the card, cloze deletion can be used here and nowhere else. Remember to escape markdown markup characters like \$ when they mean "dollar" and not "start equation"!)
+
+EXTRA:
+
+(Include any additional relevant information that reinforces the concept, offers intuitive explanations, highlights common misconceptions, provides analogies, why the concept is relevant, or connects the idea to prior knowledge. Aim to deepen understanding beyond the core answer.)
+
+DIFFICULTY: (estimated difficulty of answering the card in the format : 1-10/10)
+
+TAGS: (comma-separated Tags associated with the card in the format <StudyProgram>::<Course>::<Chapter>. Up to 3 tags per card.)
+
+-----
+
+
+### Example Output (DO NOT USE THE FOLLOWING CONTENT IN THE FLASHCARDS YOU GENERATE!!)
+
+{card_examples}
