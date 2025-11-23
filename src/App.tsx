@@ -43,7 +43,7 @@ function App() {
       <Router>
         <Routes>
           <Route
-            path="/"
+            path="/snapdeck/"
             element={
               <Layout>
                 <CreateDeck />
