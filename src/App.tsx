@@ -40,10 +40,10 @@ function App() {
       theme={theme}
     >
       <Notifications position="top-center" />
-      <Router>
+      <Router basename={import.meta.env.BASE_URL}>
         <Routes>
           <Route
-            path={`${import.meta.env.BASE_URL}`} 
+            path="/"
             element={
               <Layout>
                 <CreateDeck />
