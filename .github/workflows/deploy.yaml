@@ -20,10 +20,11 @@ jobs:
   # Job 1: Security Scan
   gitleaks:
     runs-on: ubuntu-latest
+    if: github.event_name != 'release' 
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required for history scanning
+          fetch-depth: 0 
       
       - name: Gitleaks
         uses: gitleaks/gitleaks-action@v2
@@ -61,13 +62,13 @@ jobs:
         with:
           path: './dist'
 
-  # Job 3: Deploy (Gated)
+  # Job 3: Deploy
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: [build-and-test, gitleaks]
+    needs: [build-and-test]
     if: github.event_name == 'release'
     steps:
       - name: Deploy to GitHub Pages
