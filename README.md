@@ -2,6 +2,10 @@
 
 **SnapDeck** is a privacy-focused, client-side web application that utilizes artificial intelligence to instantly convert PDF documents into high-quality Anki flashcards. By leveraging Google's Gemini AI, it streamlines the process of studying complex materials, lecture notes, and textbooks.
 
+## Usage
+
+![Example Usage](https://raw.githubusercontent.com/alexthillen/snapdeck/refs/heads/main/.github/assets/snapdeck-example.gif)
+
 ## 🚀 Overview
 
 SnapDeck automates the tedious process of creating flashcards. Users simply upload a PDF, configure their preferences, and the application generates a downloadable `.apkg` file ready to be imported directly into Anki.
