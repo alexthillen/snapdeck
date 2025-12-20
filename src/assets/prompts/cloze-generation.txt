@@ -36,7 +36,7 @@ You are an expert educator. Create **Anki cloze deletion flashcards** for the fo
 * If you would like to highlight a word or a part of a sentence, make it *italic* or **bold*.
 * Highlighted code snippets can be nice when the topic is related to programming and provide additional context.
 * Make sure to use multi-line code blocks in some cards for topics related to coding and programming. They help to provide hands-on experience to the student.
-* Don't use code blocks or inline code on text that is not representing code!
+* Never use code fences (```)/blocks or inline code (`) on anything that is not code!
 * If extra information aids memorization, add it to the EXTRA field.
 * Never embed math inside code. Don't write `x $=$ v`, but instead write $x = v$
 * IMPORTANT: The hint should **never** reveal the hidden text directly, you must not write the answer into the hint field of a cloze deletion. You are encouraged to leave out the hint, but if you add a hint, it should clarify what is requested, but never reveal the answer!

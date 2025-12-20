@@ -23,7 +23,7 @@ print("Hello World!)
 * Inside markdown math delimiters ("$…$", "$$…$$"), every time you intend a **literal** instance of any of the following characters, prefix it with a backslash so it isn't interpreted as a special latex character:
 "# → \#, $ → \$, % → \%, & → \&, _ → \_, ^ → \^, {{ → \{{, }} → \}}, ~ → \~{{}}   (note the empty braces), \ → \\". This means that you should use "\&" to represent "and" and & to represent an alignment character.
 * If you would like to highlight a word or a part of a sentence, make it *italic* or **bold*.
-* Don't use code blocks or inline code on text that is not representing code!
+* Never use code fences (```)/blocks or inline code (`) on anything that is not code!
 * Make sure to use multi-line code blocks in some cards for topics related to coding and programming. They help to provide hands-on experience to the student.
 * Return cards in order of **decreasing** importance and relevance for a potential exam.
 * Make sure to incorporate cards of different difficulty levels (if possible), some easier around 3 and some more difficult around 9 or 10.
