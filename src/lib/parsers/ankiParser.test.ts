@@ -65,6 +65,32 @@ DIFFICULTY: 2/10`
     expect(cards[1].cardType).toBe('CLOZE')
   })
 
+  it('parses cards with Markdown-emphasised field labels', () => {
+    const parser = new AnkiParser()
+    const response = `A short introduction.
+
+**FRONT:**
+What is a process?
+
+**BACK:**
+A running program.
+
+**EXTRA:**
+The operating system manages its execution.
+
+**DIFFICULTY:** 2/10
+
+**TAGS:** Computer Science::Operating Systems::Processes`
+
+    const { cards, errors } = parser.parseResponse(response)
+
+    expect(cards).toHaveLength(1)
+    expect(cards[0].front).toBe('What is a process?')
+    expect(cards[0].back).toBe('A running program.')
+    expect(errors).toHaveLength(1)
+    expect(errors[0].block).toBe('A short introduction.')
+  })
+
   it('collects issues during bulk parsing', () => {
     const parser = new AnkiParser()
     const invalidCard = 'This is not a card'

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { IconUpload, IconX, IconFileTypePdf, IconCoffee, IconCheck, IconInfoCircle } from '@tabler/icons-react'
 import {
   Paper,
@@ -22,11 +22,14 @@ import {
   saveDeckToFile,
   addCardToDeck,
 } from '../utils/anki'
-import { fileToBase64 } from '../utils/file'
 import { buildPrompt } from '../utils/llm/prompts'
-import { GeminiClient } from '../utils/llm/api'
+import { generateCards } from '../utils/llm/api'
 import { parseLlmResponse } from '../utils/llm/parser'
 import type { ParsedCard } from '../lib/parsers'
+import {
+  isLlmConfigReady,
+  type LlmConfig,
+} from '../utils/llm/config'
 
 const BUY_ME_A_COFFEE_URL = 'https://buymeacoffee.com/alexthilleq'
 type CardTypeSelection = 'BASIC' | 'CLOZE'
@@ -34,7 +37,7 @@ type CardTypeSelection = 'BASIC' | 'CLOZE'
 type DeckGenerationJob = {
   deckName: string
   file: File
-  apiKey: string
+  llmConfig: LlmConfig
   cardType: CardTypeSelection
   numCards: number
 }
@@ -42,14 +45,12 @@ type DeckGenerationJob = {
 export default function CreateDeckForm({
   onClose,
   addEditedFormId,
-  apiKey,
+  llmConfig,
 }: {
   onClose?: () => void
   addEditedFormId?: () => void
-  apiKey: string
+  llmConfig: LlmConfig
 }) {
-  const geminiClient = useMemo(() => new GeminiClient(), [])
-
   const [deckName, setDeckName] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -117,7 +118,7 @@ export default function CreateDeckForm({
     cardType,
     numCards,
     file,
-    apiKey,
+    llmConfig,
   }: DeckGenerationJob) => {
     const notificationId = `deck-generation-${Date.now()}`
     const cardTypeLabel = cardType === 'BASIC' ? 'basic' : 'cloze'
@@ -135,18 +136,17 @@ export default function CreateDeckForm({
     })
 
     try {
-      const base64Pdf = await fileToBase64(file)
       const prompt = await buildPrompt(cardType, numCards)
-      const { text } = await geminiClient.generateContent({
-        apiKey,
-        base64Document: base64Pdf,
+      const { text } = await generateCards({
+        config: llmConfig,
+        file,
         prompt,
       })
 
       const parsed = parseLlmResponse(text)
       if (!parsed.cards.length) {
         throw new Error(
-          'Gemini did not produce any valid cards. Try increasing the number or adjusting the PDF.',
+          'The model did not produce any valid cards. Try increasing the number or adjusting the PDF.',
         )
       }
 
@@ -197,7 +197,7 @@ export default function CreateDeckForm({
         notify_error(message)
       }
     }
-  }, [addParsedCardToDeck, geminiClient])
+  }, [addParsedCardToDeck])
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -218,15 +218,18 @@ export default function CreateDeckForm({
         throw new Error('Please upload a PDF file.')
       }
 
-      const trimmedApiKey = apiKey.trim()
-      if (!trimmedApiKey) {
-        throw new Error('Please provide your Gemini API key.')
+      if (!isLlmConfigReady(llmConfig)) {
+        throw new Error(
+          llmConfig.provider === 'gemini'
+            ? 'Please configure a Gemini model and API key.'
+            : 'Please configure an OpenAI-compatible base URL and model.',
+        )
       }
       const fileToProcess = file
       const job: DeckGenerationJob = {
         deckName: trimmedDeckName,
         file: fileToProcess,
-        apiKey: trimmedApiKey,
+        llmConfig,
         cardType: cardType as CardTypeSelection,
         numCards,
       }
@@ -357,7 +360,7 @@ export default function CreateDeckForm({
             isSubmitting ||
             !deckName.trim() ||
             !file ||
-            !apiKey.trim()
+            !isLlmConfigReady(llmConfig)
           }
           fullWidth
         >

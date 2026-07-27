@@ -19,18 +19,27 @@ export default function PrivacyModal({ opened, onClose }: PrivacyModalProps) {
 
         <Title order={4}>2. API Key Storage</Title>
         <Text size="sm">
-          Your Google Gemini API key remains on your device. If you opt to "Remember this key", 
-          it is stored in your browser's <Code>localStorage</Code>. It is transmitted only to Google's 
-          servers for the purpose of generating content and is never shared with SnapDeck developers.
+          Your API keys remain on your device. If you opt to remember them,
+          they are stored in your browser&apos;s <Code>localStorage</Code>.
+          Keys are sent only to the AI endpoint you configure and are never
+          shared with SnapDeck developers.
         </Text>
 
         <Title order={4}>3. Third-Party Processing</Title>
         <Text size="sm">
-          To generate flashcards, your content is sent directly from your browser to the Google Gemini API. 
-          By using this service, you agree to Google's{' '}
-          <Anchor href="https://ai.google.dev/gemini-api/terms" target="_blank">Terms of Service</Anchor> 
-          {' '}and{' '}
-          <Anchor href="https://policies.google.com/privacy" target="_blank">Privacy Policy</Anchor>.
+          To generate flashcards, your content is sent directly from your
+          browser to your selected provider. Gemini receives the PDF itself.
+          OpenAI-compatible endpoints receive text and rendered page images
+          produced from the PDF in your browser. If you use Gemini, you agree
+          to Google&apos;s{' '}
+          <Anchor href="https://ai.google.dev/gemini-api/terms" target="_blank">
+            Terms of Service
+          </Anchor>{' '}
+          and{' '}
+          <Anchor href="https://policies.google.com/privacy" target="_blank">
+            Privacy Policy
+          </Anchor>
+          .
         </Text>
       </Stack>
     </Modal>

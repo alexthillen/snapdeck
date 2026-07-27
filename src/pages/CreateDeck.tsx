@@ -4,8 +4,9 @@ import { SectionWrapper } from '../components/SectionWrapper'
 import { ActionIcon, Button, Stack, Text } from '@mantine/core'
 import MarkdownModal from '../components/MarkdownModal'
 import { IconHelp } from '@tabler/icons-react'
-import { GeminiApiKeyForm } from '../components/GeminiApiKeyForm'
-import { useGeminiApiKeyState } from '../hooks/useGeminiApiKey'
+import { LlmConfigurationForm } from '../components/LlmConfigurationForm'
+import { useLlmSettings } from '../hooks/useLlmSettings'
+import { getActiveLlmConfig } from '../utils/llm/config'
 
 const helpMarkdown = `
 ## Best Practices for PDF Upload
@@ -23,7 +24,7 @@ Documents with many pages can be overwhelming and may not produce focused decks.
   - [ILovePDF Split Tool](https://www.ilovepdf.com/split_pdf)
   - [Smallpdf Split Tool](https://smallpdf.com/split-pdf)
 - **Create separate decks** for each section or chapter
-- **Tip**: Aim for around 30 pages for book-style content or up to 100 pages for lecture-style materials for the most coherent and focused presentation decks
+- **Tip**: Keep each upload focused enough to fit your model's context window. Local multimodal models often need smaller sections than hosted models.
 
 ### Can I upload images (.jpg) or PowerPoint files (.pptx)?
 Currently, our platform only supports **PDF files** for deck creation. However, you can easily convert other formats:
@@ -38,12 +39,8 @@ function CreateDeckPage() {
   const [showHelp, setShowHelp] = useState(false)
   const [formIds, setFormIds] = useState<number[]>([Date.now()])
   const [editedFormIds, setEditedFormIds] = useState<Set<number>>(new Set())
-  const {
-    apiKey,
-    shouldPersistApiKey,
-    setApiKey,
-    setShouldPersistApiKey,
-  } = useGeminiApiKeyState()
+  const { settings, setSettings } = useLlmSettings()
+  const llmConfig = getActiveLlmConfig(settings)
 
   const addForm = () => {
     // generate a new unique ID
@@ -91,11 +88,9 @@ function CreateDeckPage() {
         }
       >
         <Stack gap="xl">
-          <GeminiApiKeyForm
-            apiKey={apiKey}
-            onApiKeyChange={setApiKey}
-            shouldPersistApiKey={shouldPersistApiKey}
-            onShouldPersistApiKeyChange={setShouldPersistApiKey}
+          <LlmConfigurationForm
+            settings={settings}
+            onSettingsChange={setSettings}
           />
 
           {formIds.map(id => (
@@ -105,7 +100,7 @@ function CreateDeckPage() {
               addEditedFormId={() =>
                 setEditedFormIds(prev => new Set(prev).add(id))
               }
-              apiKey={apiKey}
+              llmConfig={llmConfig}
             />
           ))}
           {formIds.filter(id => !editedFormIds.has(id)).length === 0 && (
