@@ -1,4 +1,4 @@
-You are an expert educator. Create {num_cards} **basic flashcards** for the following PDF.
+You are an expert educator. Create approximately {num_cards} **basic flashcards** from the document section **{section_title}**. Use **{coverage}** coverage: prioritize important concepts and return fewer cards when the source does not justify the estimate.
 
 ---
 
@@ -65,4 +65,3 @@ TAGS: (comma-separated Tags associated with the card in the format <StudyProgram
 ### Example Output (Important: **Do not refer, nor quote the examples in your answers in any shape or form. They do not serve as additional context. Exclusively use the attached pdf document to guide which topics should be covered.**)
 
 {card_examples}
-

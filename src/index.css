@@ -1,4 +1,97 @@
-/* In your CSS file (e.g., Markdown.module.css or a global stylesheet) */
+html {
+  background: #f7f8fc;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  color: #182033;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(92, 95, 236, 0.10), transparent 28rem),
+    radial-gradient(circle at 90% 8%, rgba(34, 139, 230, 0.08), transparent 24rem),
+    #f7f8fc;
+}
+
+.app-background {
+  min-height: 100vh;
+}
+
+.app-header {
+  min-height: 44px;
+}
+
+.hero-copy h1 {
+  max-width: 940px;
+  margin-inline: auto;
+  font-size: clamp(2.6rem, 6vw, 5.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+.hero-copy {
+  padding: clamp(3rem, 8vw, 7rem) 0 clamp(1rem, 4vw, 3rem);
+  text-align: center;
+}
+
+.eyebrow {
+  color: var(--mantine-color-indigo-6);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.upload-stage {
+  max-width: 820px;
+  margin-inline: auto;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 24px 80px rgba(39, 48, 90, 0.12);
+  backdrop-filter: blur(18px);
+}
+
+.card-preview-shell {
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(14px);
+}
+
+.document-dropzone {
+  border: 1px solid var(--mantine-color-gray-2);
+  background: linear-gradient(145deg, #fbfbff, #f7f8ff);
+  transition: border-color 140ms ease, transform 140ms ease;
+}
+
+.document-dropzone:hover {
+  border-color: var(--mantine-color-indigo-6);
+  transform: translateY(-1px);
+}
+
+.document-plan {
+  background: transparent;
+  border-top: 1px solid var(--mantine-color-gray-2);
+}
+
+.plan-metrics {
+  color: var(--mantine-color-gray-6);
+}
+
+.plan-row,
+.run-row {
+  min-height: 38px;
+  padding: 6px 8px;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.plan-row:hover,
+.run-row:hover {
+  background: white;
+}
+
+.setup-command {
+  white-space: pre-wrap;
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
 .markdown-content p,
 .markdown-content h1,
 .markdown-content h2,
@@ -20,4 +113,23 @@
 .markdown-content pre {
     margin: 0; /* Remove default margin from <pre> tag */
     padding: 0; /* Remove default padding if you want it tighter */
+}
+
+.markdown-content img {
+  max-width: 100%;
+}
+
+@media (max-width: 48em) {
+  .app-header > :last-child .mantine-Badge-root {
+    display: none;
+  }
+
+  .plan-row,
+  .run-row {
+    align-items: flex-start;
+  }
+
+  .header-privacy {
+    display: none;
+  }
 }

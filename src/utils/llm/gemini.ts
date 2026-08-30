@@ -1,4 +1,5 @@
 import type { GeminiConfig } from './config'
+import type { PdfPageInput } from './document'
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 
@@ -28,7 +29,7 @@ const extractText = (payload: unknown): string => {
 
 export const generateWithGemini = async (
   config: GeminiConfig,
-  base64Document: string,
+  pages: PdfPageInput[],
   prompt: string,
 ): Promise<{ text: string; raw: unknown }> => {
   const model = config.model.trim()
@@ -45,13 +46,20 @@ export const generateWithGemini = async (
           {
             role: 'user',
             parts: [
-              { text: prompt },
               {
-                inlineData: {
-                  mimeType: 'application/pdf',
-                  data: base64Document,
-                },
+                text: `${prompt}\n\nThe selected PDF section follows page by page. Use both extracted text and page images.`,
               },
+              ...pages.flatMap(page => [
+                {
+                  text: `PDF page ${page.pageNumber} extracted text:\n${page.text || '[No text was extracted from this page.]'}`,
+                },
+                {
+                  inlineData: {
+                    mimeType: 'image/jpeg',
+                    data: page.imageUrl.replace(/^data:image\/[^;]+;base64,/, ''),
+                  },
+                },
+              ]),
             ],
           },
         ],
@@ -80,4 +88,3 @@ export const generateWithGemini = async (
 
   return { text, raw: payload }
 }
-

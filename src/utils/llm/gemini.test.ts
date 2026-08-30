@@ -6,7 +6,7 @@ afterEach(() => {
 })
 
 describe('generateWithGemini', () => {
-  it('uses the configured model and sends the PDF inline', async () => {
+  it('uses the configured model and sends selected page text and images', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -23,7 +23,13 @@ describe('generateWithGemini', () => {
         apiKey: 'secret',
         model: 'gemini-3.6-flash',
       },
-      'base64-pdf',
+      [
+        {
+          pageNumber: 4,
+          text: 'Chapter text',
+          imageUrl: 'data:image/jpeg;base64,page-image',
+        },
+      ],
       'make cards',
     )
 
@@ -39,11 +45,12 @@ describe('generateWithGemini', () => {
       contents: [
         {
           parts: [
-            { text: 'make cards' },
+            { text: expect.stringContaining('make cards') },
+            { text: expect.stringContaining('Chapter text') },
             {
               inlineData: {
-                mimeType: 'application/pdf',
-                data: 'base64-pdf',
+                mimeType: 'image/jpeg',
+                data: 'page-image',
               },
             },
           ],
@@ -52,4 +59,3 @@ describe('generateWithGemini', () => {
     })
   })
 })
-

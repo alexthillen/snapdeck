@@ -8,7 +8,7 @@
 
 ## 🚀 Overview
 
-SnapDeck automates the tedious process of creating flashcards. Users simply upload a PDF, configure their preferences, and the application generates a downloadable `.apkg` file ready to be imported directly into Anki.
+SnapDeck automates the tedious process of creating flashcards. Add one or many PDFs, review the locally detected chapter plan, generate context-safe sections, edit the resulting cards, and export one downloadable `.apkg` file ready for Anki.
 
 ## ✨ Key Features
 
@@ -17,7 +17,8 @@ SnapDeck automates the tedious process of creating flashcards. Users simply uplo
 * **Math Support:** Capable of parsing and rendering mathematical equations (LaTeX) within flashcards.
 * **Multiple AI Providers:** Uses Gemini 3.6 Flash by default, or a multimodal OpenAI-compatible Responses endpoint.
 * **Privacy First:** Operates entirely in the browser. There is no backend server; your files and API keys are never stored by SnapDeck developers.
-* **Customizable:** Adjust the number of cards generated and the difficulty level of the content.
+* **Coverage-aware:** Choose concise, balanced, or thorough coverage; SnapDeck derives card targets from each section instead of asking for an arbitrary total.
+* **Review before export:** Flip, edit, include, or exclude generated cards before downloading the deck.
 * **Immediate Export:** Generates standard `.apkg` files compatible with the Anki desktop and mobile apps.
 
 ## 🔒 Privacy & Security
@@ -40,13 +41,11 @@ You also need **Anki** desktop or mobile to open the generated decks.
 ## 📖 How to Use
 
 1.  **Configure AI:** Choose Gemini or OpenAI-compatible and enter the required connection settings.
-2.  **Upload:** Drag and drop a PDF file (up to 10MB) into the upload zone.
-3.  **Customize:**
-    * Name your deck.
-    * Select the card type (Basic or Cloze).
-    * Choose the number of cards to generate.
-4.  **Generate:** Click "Create Deck." The AI will analyze the document and generate cards.
-5.  **Download & Study:** Download the resulting `.apkg` file and double-click it to import it into Anki.
+2.  **Add documents:** Drag, select, or paste one or more PDFs. Text and PDF bookmarks are analyzed locally; page images are not retained for the whole corpus.
+3.  **Review the plan:** Include or exclude chapters, toggle nested subchapters, choose Basic or Cloze cards, and select concise, balanced, or thorough coverage.
+4.  **Generate:** SnapDeck processes context-safe sections sequentially. Failed sections remain visible and can be retried without discarding successful work.
+5.  **Review:** Flip cards, edit fields and tags, and exclude weak cards.
+6.  **Download & study:** Export one `.apkg` root deck. Source and chapter provenance is retained as hierarchical Anki tags.
 
 ## Using the local MLX-VLM server
 
@@ -74,19 +73,21 @@ Then select **OpenAI-compatible** in SnapDeck and use:
 * API key: leave empty for the local server
 
 The server's 32k context contains the input text, image tokens, chat template, and
-generated output. If a PDF exceeds that budget, split it into focused sections or
-lower the server's output allowance. SnapDeck does not silently drop pages.
+generated output. SnapDeck plans conservative section requests and does not
+silently drop pages.
 
 ## How multimodal PDF processing works
 
-SnapDeck has no application backend. For an OpenAI-compatible provider, the
-browser:
+SnapDeck has no application backend. For either provider, the browser:
 
 1. Opens the PDF with PDF.js.
 2. Extracts the text layer from every page.
-3. Renders every page at 1.5× resolution as a JPEG data URL using quality 0.85.
-4. Sends the instructions, page text, and page images directly to
-   `<base URL>/responses`.
+3. Uses PDF bookmarks as chapter boundaries, or builds conservative contiguous
+   page ranges when bookmarks are unavailable.
+4. Renders only the pages for the current generation request at 1.5× resolution
+   as JPEG data URLs using quality 0.85.
+5. Sends the instructions, page text, and page images directly to the selected
+   provider.
 
 Each page is represented by an `input_text` item followed by an `input_image`
 item. A simplified request looks like this:
@@ -122,8 +123,10 @@ rendered image lets a vision-capable model use diagrams, charts, page structure,
 and scanned content. The local MLX server accepts the base64 data URLs produced
 by a browser and enables CORS for direct requests.
 
-Gemini follows a separate path: SnapDeck sends the original PDF inline to the
-Gemini API instead of rendering it locally.
+OpenAI-compatible providers receive the parts through `<base URL>/responses`.
+Gemini receives equivalent text and inline JPEG parts through `generateContent`.
+Image-token cost varies between models, so the displayed context estimate is a
+conservative heuristic rather than a tokenizer guarantee.
 
 ## ⚠️ Disclaimer
 

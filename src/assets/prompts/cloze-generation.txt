@@ -1,6 +1,6 @@
 ## Instructions
 
-You are an expert educator. Create **Anki cloze deletion flashcards** for the following PDF. The number of cards should be {num_cards}.
+You are an expert educator. Create approximately **{num_cards} Anki cloze deletion flashcards** from the document section **{section_title}**. Use **{coverage}** coverage: prioritize important concepts and return fewer cards when the source does not justify the estimate.
 
 ### Flashcard Quality
 * Flashcards must be **well-suited for spaced repetition**: concise and atomic.

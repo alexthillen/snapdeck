@@ -18,6 +18,7 @@ type StoredSettings = {
   geminiModel?: string
   openAiBaseUrl?: string
   openAiModel?: string
+  contextTokens?: number
   shouldPersistApiKeys?: boolean
 }
 
@@ -82,6 +83,10 @@ const readSettingsFromStorage = (): LlmSettings => {
           ? defaults.openAiCompatible.model
           : storedOpenAiModel,
     },
+    contextTokens:
+      typeof stored.contextTokens === 'number' && stored.contextTokens >= 8_192
+        ? stored.contextTokens
+        : defaults.contextTokens,
     shouldPersistApiKeys,
   }
 }
@@ -96,6 +101,7 @@ const persistSettings = (settings: LlmSettings) => {
     geminiModel: settings.gemini.model.trim(),
     openAiBaseUrl: settings.openAiCompatible.baseUrl.trim(),
     openAiModel: settings.openAiCompatible.model.trim(),
+    contextTokens: settings.contextTokens,
     shouldPersistApiKeys: settings.shouldPersistApiKeys,
   }
   window.localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(stored))

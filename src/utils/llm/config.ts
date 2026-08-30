@@ -4,6 +4,7 @@ export const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash'
 export const DEFAULT_OPENAI_BASE_URL = 'http://127.0.0.1:8100/v1'
 export const DEFAULT_OPENAI_MODEL =
   'mlx-community/gemma-4-E4B-it-qat-4bit'
+export const DEFAULT_CONTEXT_TOKENS = 32_768
 
 export type GeminiConfig = {
   provider: 'gemini'
@@ -24,6 +25,7 @@ export type LlmSettings = {
   provider: LlmProvider
   gemini: Omit<GeminiConfig, 'provider'>
   openAiCompatible: Omit<OpenAiCompatibleConfig, 'provider'>
+  contextTokens: number
   shouldPersistApiKeys: boolean
 }
 
@@ -38,6 +40,7 @@ export const createDefaultLlmSettings = (): LlmSettings => ({
     baseUrl: DEFAULT_OPENAI_BASE_URL,
     model: DEFAULT_OPENAI_MODEL,
   },
+  contextTokens: DEFAULT_CONTEXT_TOKENS,
   shouldPersistApiKeys: false,
 })
 

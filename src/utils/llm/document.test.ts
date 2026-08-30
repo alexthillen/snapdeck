@@ -1,9 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { readPdfPages } from './document'
+import { analyzePdf, renderPdfPages } from './document'
 
 const pdfMocks = vi.hoisted(() => ({
   destroy: vi.fn(),
   render: vi.fn(() => ({ promise: Promise.resolve() })),
+  getOutline: vi.fn(async () => [
+    {
+      title: 'Chapter 1',
+      dest: [{ num: 10, gen: 0 }],
+      items: [
+        { title: 'Section 1.1', dest: 'named-section', items: [] },
+      ],
+    },
+  ]),
 }))
 
 vi.mock('pdfjs-dist', () => ({
@@ -21,6 +30,9 @@ vi.mock('pdfjs-dist', () => ({
         getViewport: vi.fn(() => ({ width: 918, height: 1188 })),
         render: pdfMocks.render,
       })),
+      getOutline: pdfMocks.getOutline,
+      getDestination: vi.fn(async () => [1]),
+      getPageIndex: vi.fn(async () => 0),
     }),
     destroy: pdfMocks.destroy,
   })),
@@ -31,44 +43,55 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('readPdfPages', () => {
-  it('extracts text and renders every PDF page as a JPEG data URL', async () => {
-    const toDataUrls = [
-      vi.fn(() => 'data:image/jpeg;base64,page-one'),
-      vi.fn(() => 'data:image/jpeg;base64,page-two'),
-    ]
-    const canvases = toDataUrls.map(toDataURL => ({
-      width: 0,
-      height: 0,
-      toDataURL,
-    }))
-    const createElement = vi
-      .fn()
-      .mockReturnValueOnce(canvases[0])
-      .mockReturnValueOnce(canvases[1])
-    vi.stubGlobal('document', { createElement })
+describe('PDF document handling', () => {
+  it('analyzes text and nested bookmarks without rendering pages', async () => {
+    const file = new File(['pdf'], 'document.pdf', { type: 'application/pdf' })
+    const document = await analyzePdf(file)
 
-    const file = new File(['pdf'], 'document.pdf', {
-      type: 'application/pdf',
+    expect(document.pages.map(page => page.text)).toEqual([
+      'Page 1 content',
+      'Page 2 content',
+    ])
+    expect(document.outline).toEqual([
+      {
+        id: 'outline-1',
+        title: 'Chapter 1',
+        pageIndex: 0,
+        children: [
+          {
+            id: 'outline-1-1',
+            title: 'Section 1.1',
+            pageIndex: 1,
+            children: [],
+          },
+        ],
+      },
+    ])
+    expect(pdfMocks.render).not.toHaveBeenCalled()
+    expect(pdfMocks.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('renders only the requested page range and releases the PDF', async () => {
+    const toDataURL = vi.fn(() => 'data:image/jpeg;base64,page-two')
+    const canvas = { width: 0, height: 0, toDataURL }
+    vi.stubGlobal('window', {
+      document: { createElement: vi.fn(() => canvas) },
     })
-    const pages = await readPdfPages(file)
+    const file = new File(['pdf'], 'document.pdf', { type: 'application/pdf' })
+    const document = await analyzePdf(file)
+    pdfMocks.destroy.mockClear()
+
+    const pages = await renderPdfPages(document, { start: 1, end: 2 })
 
     expect(pages).toEqual([
-      {
-        pageNumber: 1,
-        text: 'Page 1 content',
-        imageUrl: 'data:image/jpeg;base64,page-one',
-      },
       {
         pageNumber: 2,
         text: 'Page 2 content',
         imageUrl: 'data:image/jpeg;base64,page-two',
       },
     ])
-    expect(createElement).toHaveBeenCalledTimes(2)
-    expect(toDataUrls[0]).toHaveBeenCalledWith('image/jpeg', 0.85)
-    expect(toDataUrls[1]).toHaveBeenCalledWith('image/jpeg', 0.85)
-    expect(pdfMocks.render).toHaveBeenCalledTimes(2)
+    expect(pdfMocks.render).toHaveBeenCalledOnce()
+    expect(toDataURL).toHaveBeenCalledWith('image/jpeg', 0.85)
     expect(pdfMocks.destroy).toHaveBeenCalledOnce()
   })
 })
