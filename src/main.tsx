@@ -9,6 +9,16 @@ import './index.css'
 
 import App from './App.tsx'
 
+const cloudflareAnalyticsToken = import.meta.env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN?.trim()
+
+if (import.meta.env.PROD && cloudflareAnalyticsToken) {
+  const beacon = document.createElement('script')
+  beacon.type = 'module'
+  beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js'
+  beacon.dataset.cfBeacon = JSON.stringify({ token: cloudflareAnalyticsToken })
+  document.head.append(beacon)
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

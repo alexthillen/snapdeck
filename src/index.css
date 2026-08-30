@@ -70,15 +70,51 @@ body {
   border-top: 1px solid var(--mantine-color-gray-2);
 }
 
+.section-list-scroll {
+  max-height: min(34rem, 58vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
 .plan-metrics {
   color: var(--mantine-color-gray-6);
 }
 
-.plan-row,
+.plan-row {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) 5.75rem 3rem 4.5rem;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 38px;
+  padding: 6px 8px;
+  border-radius: var(--mantine-radius-sm);
+}
+
 .run-row {
   min-height: 38px;
   padding: 6px 8px;
   border-radius: var(--mantine-radius-sm);
+}
+
+.plan-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-row-pages,
+.plan-row-cards,
+.plan-row-calls {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.plan-row-calls {
+  min-width: 4.5rem;
+  text-align: right;
 }
 
 .plan-row:hover,
@@ -124,9 +160,32 @@ body {
     display: none;
   }
 
-  .plan-row,
   .run-row {
     align-items: flex-start;
+  }
+
+  .plan-row {
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    gap: 0.35rem 0.6rem;
+    min-height: 58px;
+    padding-block: 8px;
+  }
+
+  .plan-row-title {
+    grid-column: 2 / 4;
+  }
+
+  .plan-row-pages {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .plan-row-cards {
+    grid-column: 3;
+  }
+
+  .plan-row-calls {
+    display: none;
   }
 
   .header-privacy {

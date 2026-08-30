@@ -3,8 +3,8 @@ import frontBasic from '../../assets/templates/front_basic.html?raw'
 import backBasic from '../../assets/templates/back_basic.html?raw'
 import frontCloze from '../../assets/templates/front_cloze.html?raw'
 import backCloze from '../../assets/templates/back_cloze.html?raw'
-import { BasicCardModel } from './basic'
-import { ClozeCardModel } from './cloze'
+import { BasicCardNotetype } from './basic'
+import { ClozeCardNotetype } from './cloze'
 
 const templates = [frontBasic, backBasic, frontCloze, backCloze]
 
@@ -18,13 +18,13 @@ describe('exported card template contract', () => {
   })
 
   it('keeps the fields expected by the renderer and review UI', () => {
-    expect(BasicCardModel.props.flds.map((field: { name: string }) => field.name)).toEqual([
+    expect(BasicCardNotetype.fields.map(field => field.name)).toEqual([
       'Front',
       'Back',
       'Extra',
       'Difficulty',
     ])
-    expect(ClozeCardModel.props.flds.map((field: { name: string }) => field.name)).toEqual([
+    expect(ClozeCardNotetype.fields.map(field => field.name)).toEqual([
       'Text',
       'Back Extra',
       'Difficulty',

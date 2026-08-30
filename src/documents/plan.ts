@@ -54,16 +54,28 @@ const flattenOutline = (
 const pageInputTokens = (document: AnalyzedDocument, pageIndex: number): number =>
   document.pages[pageIndex].estimatedTokens + IMAGE_INPUT_TOKENS_PER_PAGE
 
-const targetCards = (
-  document: AnalyzedDocument,
-  range: PageRange,
-  coverage: CoverageLevel,
-): number => {
-  const textTokens = document.pages
-    .slice(range.start, range.end)
-    .reduce((total, page) => total + page.estimatedTokens, 0)
-  const content = textTokens + (range.end - range.start) * IMAGE_CONTENT_TOKENS_PER_PAGE
+const targetCards = (textTokens: number, pageCount: number, coverage: CoverageLevel): number => {
+  const content = textTokens + pageCount * IMAGE_CONTENT_TOKENS_PER_PAGE
   return Math.max(1, Math.ceil(content / TOKENS_PER_CARD[coverage]))
+}
+
+const splitPageText = (text: string, maxTokens: number): string[] => {
+  const maxCharacters = Math.max(1, maxTokens * 4)
+  const chunks: string[] = []
+  let remaining = text.trim()
+
+  while (remaining.length > maxCharacters) {
+    const minimumBreak = Math.floor(maxCharacters * 0.6)
+    const candidate = remaining.slice(0, maxCharacters + 1)
+    const newline = candidate.lastIndexOf('\n')
+    const space = candidate.lastIndexOf(' ')
+    const splitAt = Math.max(newline, space, minimumBreak)
+    chunks.push(remaining.slice(0, splitAt).trim())
+    remaining = remaining.slice(splitAt).trim()
+  }
+
+  if (remaining) chunks.push(remaining)
+  return chunks.length ? chunks : ['']
 }
 
 const splitRange = (
@@ -74,18 +86,54 @@ const splitRange = (
   contextTokens: number,
 ): GenerationUnit[] => {
   const inputBudget = Math.floor(contextTokens * INPUT_BUDGET_RATIO)
-  const ranges: PageRange[] = []
+  const units: Array<{
+    range: PageRange
+    estimatedInputTokens: number
+    textTokens: number
+    textOverrides?: GenerationUnit['textOverrides']
+  }> = []
   let start = range.start
   let tokens = 0
 
+  const addRange = (end: number) => {
+    if (start >= end) return
+    const pages = document.pages.slice(start, end)
+    units.push({
+      range: { start, end },
+      estimatedInputTokens: pages.reduce(
+        (total, page) => total + page.estimatedTokens + IMAGE_INPUT_TOKENS_PER_PAGE,
+        0,
+      ),
+      textTokens: pages.reduce((total, page) => total + page.estimatedTokens, 0),
+    })
+  }
+
   for (let pageIndex = range.start; pageIndex < range.end; pageIndex += 1) {
     const nextTokens = pageInputTokens(document, pageIndex)
+    if (nextTokens > inputBudget) {
+      addRange(pageIndex)
+      const page = document.pages[pageIndex]
+      const maxTextTokens = Math.max(1, inputBudget - IMAGE_INPUT_TOKENS_PER_PAGE)
+      splitPageText(page.text, maxTextTokens).forEach(text => {
+        const textTokens = Math.ceil(text.length / 4)
+        units.push({
+          range: { start: pageIndex, end: pageIndex + 1 },
+          estimatedInputTokens: textTokens + IMAGE_INPUT_TOKENS_PER_PAGE,
+          textTokens,
+          textOverrides: [{ pageIndex, text }],
+        })
+      })
+      start = pageIndex + 1
+      tokens = 0
+      continue
+    }
+
     const pagesInUnit = pageIndex - start
     if (
       pagesInUnit > 0 &&
       (tokens + nextTokens > inputBudget || pagesInUnit >= MAX_PAGES_PER_UNIT)
     ) {
-      ranges.push({ start, end: pageIndex })
+      addRange(pageIndex)
       start = pageIndex
       tokens = 0
     }
@@ -93,21 +141,17 @@ const splitRange = (
   }
 
   if (start < range.end) {
-    ranges.push({ start, end: range.end })
+    addRange(range.end)
   }
 
-  return ranges.map((unitRange, index) => ({
+  return units.map((unit, index) => ({
     id: `${sectionId}-unit-${index + 1}`,
     sectionId,
     documentId: document.id,
-    range: unitRange,
-    estimatedInputTokens: document.pages
-      .slice(unitRange.start, unitRange.end)
-      .reduce(
-        (total, page) => total + page.estimatedTokens + IMAGE_INPUT_TOKENS_PER_PAGE,
-        0,
-      ),
-    targetCards: targetCards(document, unitRange, coverage),
+    range: unit.range,
+    estimatedInputTokens: unit.estimatedInputTokens,
+    targetCards: targetCards(unit.textTokens, unit.range.end - unit.range.start, coverage),
+    textOverrides: unit.textOverrides,
   }))
 }
 

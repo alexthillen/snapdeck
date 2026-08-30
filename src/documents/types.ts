@@ -47,6 +47,10 @@ export type GenerationUnit = {
   range: PageRange
   estimatedInputTokens: number
   targetCards: number
+  textOverrides?: Array<{
+    pageIndex: number
+    text: string
+  }>
 }
 
 export type GenerationPlan = {

@@ -46,6 +46,7 @@ export function LlmConfigurationForm({
   const configured = isLlmConfigReady(getActiveLlmConfig(settings))
   const [opened, setOpened] = useState(!configured)
   const [gemmaHelpOpened, setGemmaHelpOpened] = useState(false)
+  const [gemmaHelpStep, setGemmaHelpStep] = useState<'install' | 'run'>('install')
 
   const setProvider = (provider: string) => {
     onSettingsChange({
@@ -165,7 +166,7 @@ export function LlmConfigurationForm({
                 >
                   Google AI Studio
                 </Anchor>
-                . SnapDeck sends the PDF directly from your browser to Google.
+                . SnapDeck sends extracted text and rendered page images directly from your browser to Google; it does not upload the original PDF file.
               </Text>
             </>
           ) : (
@@ -243,33 +244,72 @@ export function LlmConfigurationForm({
             }
           />
 
-          <UnstyledButton
-            onClick={() => setGemmaHelpOpened(value => !value)}
-            py="xs"
-          >
-            <Group justify="space-between">
-              <Group gap="xs">
-                <IconTerminal2 size={16} />
-                <Text size="sm" fw={600}>Run Gemma 4 locally</Text>
-              </Group>
-              {gemmaHelpOpened ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
-            </Group>
-          </UnstyledButton>
-          <Collapse in={gemmaHelpOpened}>
-            <Stack gap="xs">
-              <Text size="xs" c="dimmed">
-                In the <code>mlx-vlm</code> checkout, start the tested 32k server:
-              </Text>
-              <Code block className="setup-command">{`uv sync --frozen
-uv run python -m mlx_vlm.server \\
+          {settings.provider === 'openai-compatible' && (
+            <>
+              <UnstyledButton
+                onClick={() => setGemmaHelpOpened(value => !value)}
+                py="xs"
+              >
+                <Group justify="space-between">
+                  <Group gap="xs">
+                    <IconTerminal2 size={16} />
+                    <Text size="sm" fw={600}>Run Gemma 4 locally</Text>
+                  </Group>
+                  {gemmaHelpOpened ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
+                </Group>
+              </UnstyledButton>
+              <Collapse in={gemmaHelpOpened}>
+                <Stack gap="xs">
+                  <SegmentedControl
+                    value={gemmaHelpStep}
+                    onChange={value => setGemmaHelpStep(value as 'install' | 'run')}
+                    data={[
+                      { label: 'Install', value: 'install' },
+                      { label: 'Run', value: 'run' },
+                    ]}
+                    fullWidth
+                    size="xs"
+                  />
+
+                  {gemmaHelpStep === 'install' ? (
+                    <>
+                      <Text size="xs" c="dimmed">
+                        On an Apple silicon Mac, open Terminal. Install{' '}
+                        <Anchor
+                          size="xs"
+                          href="https://docs.astral.sh/uv/getting-started/installation/"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          uv
+                        </Anchor>
+                        , then install the tested mlx-vlm release in an isolated environment:
+                      </Text>
+                      <Code block className="setup-command">{`curl -LsSf https://astral.sh/uv/install.sh | sh
+
+uv tool install "mlx-vlm==0.6.7"`}</Code>
+                      <Text size="xs" c="dimmed">
+                        You only need to do this once. No project checkout is required. If the command is not found afterward, open a new Terminal window.
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text size="xs" c="dimmed">
+                        Open Terminal anywhere and start the 32k server:
+                      </Text>
+                      <Code block className="setup-command">{`mlx_vlm.server \\
   --host 127.0.0.1 --port 8100 \\
   --model mlx-community/gemma-4-E4B-it-qat-4bit \\
   --max-kv-size 32768 --max-tokens 8192`}</Code>
-              <Text size="xs" c="dimmed">
-                Then choose OpenAI-compatible. The default URL and model above already match this command.
-              </Text>
-            </Stack>
-          </Collapse>
+                      <Text size="xs" c="dimmed">
+                        The first start downloads the model. Keep Terminal open while using SnapDeck; the default URL and model above already match this server.
+                      </Text>
+                    </>
+                  )}
+                </Stack>
+              </Collapse>
+            </>
+          )}
 
           <Switch
             label="Remember API keys on this device"

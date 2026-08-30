@@ -101,6 +101,78 @@ describe('generateWithOpenAiResponses', () => {
     ).resolves.toMatchObject({ text: 'first\nsecond' })
   })
 
+  it('assembles streamed Responses text and reports partial output', async () => {
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(
+          'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"FRONT: Question?\\n"}\n\n',
+        ))
+        controller.enqueue(encoder.encode(
+          'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"BACK: Answer."}\n\n',
+        ))
+        controller.enqueue(encoder.encode(
+          'event: response.completed\ndata: {"type":"response.completed","response":{}}\n\n',
+        ))
+        controller.close()
+      },
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(stream, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const onText = vi.fn()
+
+    const result = await generateWithOpenAiResponses(
+      {
+        provider: 'openai-compatible',
+        apiKey: '',
+        baseUrl: 'http://127.0.0.1:8100/v1',
+        model: 'model',
+      },
+      pages,
+      'Make cards',
+      { onText },
+    )
+
+    expect(result.text).toBe('FRONT: Question?\nBACK: Answer.')
+    expect(onText).toHaveBeenLastCalledWith(result.text)
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(init.headers).toMatchObject({ Accept: 'text/event-stream' })
+    expect(JSON.parse(init.body as string)).toMatchObject({ stream: true })
+  })
+
+  it('rejects a streamed response that ends incomplete after usable-looking text', async () => {
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(
+          'data: {"type":"response.output_text.delta","delta":"FRONT: Question?\\nBACK: Answer."}\n\n',
+        ))
+        controller.enqueue(encoder.encode(
+          'data: {"type":"response.incomplete","response":{"incomplete_details":{"reason":"max_output_tokens"}}}\n\n',
+        ))
+        controller.close()
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(stream, { status: 200 })))
+
+    await expect(generateWithOpenAiResponses(
+      {
+        provider: 'openai-compatible',
+        apiKey: '',
+        baseUrl: 'http://127.0.0.1:8100/v1',
+        model: 'model',
+      },
+      pages,
+      'Make cards',
+      { onText: vi.fn() },
+    )).rejects.toThrow('max_output_tokens')
+  })
+
   it('reports the endpoint error message and sends a configured key', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
@@ -136,6 +208,7 @@ it.runIf(process.env.SNAPDECK_MLX_TEST === '1')(
     const logo = await readFile(
       new URL('../../assets/snapdeck_logo.png', import.meta.url),
     )
+    const streamedText: string[] = []
     const result = await generateWithOpenAiResponses(
       {
         provider: 'openai-compatible',
@@ -168,9 +241,11 @@ EXTRA:
 DIFFICULTY: 1-10/10
 
 TAGS: Geography::Europe::Capitals`,
+      { onText: text => streamedText.push(text) },
     )
 
     const parsed = parseLlmResponse(result.text)
+    expect(streamedText.length).toBeGreaterThan(0)
     expect(parsed.cards).toHaveLength(1)
     expect(parsed.cards[0]?.front).toMatch(/capital.*Switzerland/i)
     expect(parsed.cards[0]?.back).toMatch(/Bern/i)

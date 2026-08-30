@@ -12,10 +12,20 @@ type GeminiCandidate = {
   content?: {
     parts?: GeminiPart[]
   }
+  finishReason?: string
+  finishMessage?: string
+}
+
+type GeminiPayload = {
+  candidates?: GeminiCandidate[]
+  promptFeedback?: {
+    blockReason?: string
+  }
+  error?: { message?: string }
 }
 
 const extractText = (payload: unknown): string => {
-  const candidates = (payload as { candidates?: GeminiCandidate[] })?.candidates
+  const candidates = (payload as GeminiPayload)?.candidates
   if (!Array.isArray(candidates)) {
     return ''
   }
@@ -31,6 +41,7 @@ export const generateWithGemini = async (
   config: GeminiConfig,
   pages: PdfPageInput[],
   prompt: string,
+  signal?: AbortSignal,
 ): Promise<{ text: string; raw: unknown }> => {
   const model = config.model.trim()
   const response = await fetch(
@@ -64,21 +75,30 @@ export const generateWithGemini = async (
           },
         ],
         generationConfig: {
-          temperature: 0.1,
-          topP: 0.95,
-          topK: 64,
           maxOutputTokens: 4 * 8192,
         },
       }),
+      signal,
     },
   )
 
-  const payload = await response.json().catch(() => ({}))
+  const payload = await response.json().catch(() => ({})) as GeminiPayload
   if (!response.ok) {
     const message =
-      (payload as { error?: { message?: string } })?.error?.message ||
+      payload.error?.message ||
       `Gemini API error (${response.status})`
     throw new Error(message)
+  }
+
+  if (payload.promptFeedback?.blockReason) {
+    throw new Error(`Gemini blocked the prompt (${payload.promptFeedback.blockReason})`)
+  }
+
+  const candidate = payload.candidates?.[0]
+  if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
+    throw new Error(
+      candidate.finishMessage || `Gemini returned an incomplete response (${candidate.finishReason})`,
+    )
   }
 
   const text = extractText(payload)

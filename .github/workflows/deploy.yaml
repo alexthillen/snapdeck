@@ -55,6 +55,8 @@ jobs:
 
       - name: Build Application
         run: npm run build
+        env:
+          VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${{ vars.CLOUDFLARE_WEB_ANALYTICS_TOKEN }}
 
       - name: Upload Artifact
         if: github.event_name == 'release'

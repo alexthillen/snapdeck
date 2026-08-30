@@ -87,13 +87,22 @@ The operating system manages its execution.
     expect(cards).toHaveLength(1)
     expect(cards[0].front).toBe('What is a process?')
     expect(cards[0].back).toBe('A running program.')
-    expect(errors).toHaveLength(1)
-    expect(errors[0].block).toBe('A short introduction.')
+    expect(errors).toHaveLength(0)
   })
 
-  it('collects issues during bulk parsing', () => {
+  it('ignores harmless response scaffolding around cards', () => {
     const parser = new AnkiParser()
-    const invalidCard = 'This is not a card'
+    const { cards, errors } = parser.parseResponse(
+      `Here are the requested cards.\n\n---\n\n${BASIC_CARD}\n\n---`,
+    )
+
+    expect(cards).toHaveLength(1)
+    expect(errors).toHaveLength(0)
+  })
+
+  it('collects malformed card-like blocks during bulk parsing', () => {
+    const parser = new AnkiParser()
+    const invalidCard = 'FRONT: This card is missing its required fields'
     const { cards, errors } = parser.parseResponse(
       `${BASIC_CARD}\n\n${invalidCard}`,
     )

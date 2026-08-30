@@ -27,20 +27,36 @@ type PdfProxy = {
       canvas: HTMLCanvasElement
       viewport: { width: number; height: number }
       background: string
-    }) => { promise: Promise<void> }
+    }) => { promise: Promise<void>; cancel?: () => void }
   }>
   getOutline: () => Promise<RawOutlineNode[] | null>
   getDestination: (id: string) => Promise<unknown[] | null>
   getPageIndex: (reference: { num: number; gen: number }) => Promise<number>
 }
 
-const loadPdf = async (file: File) => {
+const abortError = () => new DOMException('The operation was aborted.', 'AbortError')
+
+const loadPdf = async (file: File, signal?: AbortSignal) => {
+  if (signal?.aborted) throw abortError()
   const { GlobalWorkerOptions, getDocument } = await import('pdfjs-dist')
   GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+  const data = new Uint8Array(await file.arrayBuffer())
+  if (signal?.aborted) throw abortError()
   const loadingTask = getDocument({
-    data: new Uint8Array(await file.arrayBuffer()),
+    data,
   })
-  const pdf = (await loadingTask.promise) as unknown as PdfProxy
+  const stopLoading = () => void loadingTask.destroy()
+  signal?.addEventListener('abort', stopLoading, { once: true })
+  let pdf: PdfProxy
+  try {
+    pdf = (await loadingTask.promise) as unknown as PdfProxy
+    if (signal?.aborted) throw abortError()
+  } catch (error) {
+    await loadingTask.destroy()
+    throw error
+  } finally {
+    signal?.removeEventListener('abort', stopLoading)
+  }
   return { pdf, destroy: () => loadingTask.destroy() }
 }
 
@@ -87,21 +103,26 @@ const resolveOutline = async (
   prefix = 'outline',
 ): Promise<PdfOutlineNode[]> => {
   const resolved = await Promise.all(
-    nodes.map(async (node, index): Promise<PdfOutlineNode | null> => {
-      const pageIndex = await resolveDestinationPage(pdf, node.dest)
-      if (pageIndex == null) {
-        return null
-      }
+    nodes.map(async (node, index): Promise<PdfOutlineNode[]> => {
       const id = `${prefix}-${index + 1}`
-      return {
+      const children = await resolveOutline(pdf, node.items ?? [], id)
+      let pageIndex: number | null = null
+      try {
+        pageIndex = await resolveDestinationPage(pdf, node.dest)
+      } catch {
+        return children
+      }
+      if (pageIndex == null) return children
+
+      return [{
         id,
         title: node.title.trim() || `Section ${index + 1}`,
         pageIndex,
-        children: await resolveOutline(pdf, node.items ?? [], id),
-      }
+        children,
+      }]
     }),
   )
-  return resolved.filter((node): node is PdfOutlineNode => node !== null)
+  return resolved.flat()
 }
 
 const documentId = (): string => {
@@ -139,30 +160,59 @@ export const analyzePdf = async (file: File): Promise<AnalyzedDocument> => {
 export const renderPdfPages = async (
   document: AnalyzedDocument,
   range: PageRange,
+  signal?: AbortSignal,
 ): Promise<PdfPageInput[]> => {
-  const { pdf, destroy } = await loadPdf(document.file)
+  const session = await createPdfRenderSession(document, signal)
   try {
-    const pages: PdfPageInput[] = []
-    for (let pageIndex = range.start; pageIndex < range.end; pageIndex += 1) {
-      const page = await pdf.getPage(pageIndex + 1)
-      const viewport = page.getViewport({ scale: PAGE_RENDER_SCALE })
-      const canvas = window.document.createElement('canvas')
-      canvas.width = Math.ceil(viewport.width)
-      canvas.height = Math.ceil(viewport.height)
-
-      await page.render({ canvas, viewport, background: '#ffffff' }).promise
-
-      const imageUrl = canvas.toDataURL('image/jpeg', PAGE_IMAGE_QUALITY)
-      canvas.width = 0
-      canvas.height = 0
-      pages.push({
-        pageNumber: pageIndex + 1,
-        text: document.pages[pageIndex].text,
-        imageUrl,
-      })
-    }
-    return pages
+    return await session.render(range, signal)
   } finally {
-    await destroy()
+    await session.destroy()
+  }
+}
+
+export type PdfRenderSession = {
+  render: (range: PageRange, signal?: AbortSignal) => Promise<PdfPageInput[]>
+  destroy: () => Promise<void>
+}
+
+export const createPdfRenderSession = async (
+  document: AnalyzedDocument,
+  signal?: AbortSignal,
+): Promise<PdfRenderSession> => {
+  const { pdf, destroy } = await loadPdf(document.file, signal)
+  return {
+    render: async (range, renderSignal) => {
+      const pages: PdfPageInput[] = []
+      for (let pageIndex = range.start; pageIndex < range.end; pageIndex += 1) {
+        if (renderSignal?.aborted) throw abortError()
+        const page = await pdf.getPage(pageIndex + 1)
+        if (renderSignal?.aborted) throw abortError()
+        const viewport = page.getViewport({ scale: PAGE_RENDER_SCALE })
+        const canvas = window.document.createElement('canvas')
+        canvas.width = Math.ceil(viewport.width)
+        canvas.height = Math.ceil(viewport.height)
+
+        const renderTask = page.render({ canvas, viewport, background: '#ffffff' })
+        const stopRendering = () => renderTask.cancel?.()
+        renderSignal?.addEventListener('abort', stopRendering, { once: true })
+        try {
+          await renderTask.promise
+          if (renderSignal?.aborted) throw abortError()
+        } finally {
+          renderSignal?.removeEventListener('abort', stopRendering)
+        }
+
+        const imageUrl = canvas.toDataURL('image/jpeg', PAGE_IMAGE_QUALITY)
+        canvas.width = 0
+        canvas.height = 0
+        pages.push({
+          pageNumber: pageIndex + 1,
+          text: document.pages[pageIndex].text,
+          imageUrl,
+        })
+      }
+      return pages
+    },
+    destroy,
   }
 }

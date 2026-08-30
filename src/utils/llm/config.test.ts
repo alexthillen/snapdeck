@@ -9,11 +9,11 @@ import {
 } from './config'
 
 describe('LLM configuration', () => {
-  it('defaults to Gemini 3.6 Flash', () => {
+  it('defaults to Gemini 3.7 Flash', () => {
     const settings = createDefaultLlmSettings()
 
     expect(settings.provider).toBe('gemini')
-    expect(settings.gemini.model).toBe('gemini-3.6-flash')
+    expect(settings.gemini.model).toBe('gemini-3.7-flash')
     expect(settings.gemini.model).toBe(DEFAULT_GEMINI_MODEL)
     expect(isLlmConfigReady(getActiveLlmConfig(settings))).toBe(false)
   })

@@ -1,11 +1,19 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPendingRuns, runGeneration } from './runGeneration'
+import { GenerationController } from './control'
 import type { AnalyzedDocument, GenerationPlan } from '../documents/types'
 
-vi.mock('../utils/llm/document', () => ({
-  renderPdfPages: vi.fn(async (_document, range) => [
+const pdf = vi.hoisted(() => ({
+  createSession: vi.fn(),
+  destroy: vi.fn(),
+  render: vi.fn(async range => [
     { pageNumber: range.start + 1, text: 'Source', imageUrl: 'data:image/jpeg;base64,x' },
   ]),
+}))
+
+vi.mock('../utils/llm/document', () => ({
+  renderPdfPages: vi.fn(),
+  createPdfRenderSession: pdf.createSession,
 }))
 
 vi.mock('../utils/llm/prompts', () => ({
@@ -70,6 +78,12 @@ const document: AnalyzedDocument = {
 }
 
 describe('generation orchestration', () => {
+  beforeEach(() => {
+    pdf.createSession.mockResolvedValue({ render: pdf.render, destroy: pdf.destroy })
+    pdf.render.mockClear()
+    pdf.destroy.mockClear()
+  })
+
   it('creates one pending run per included unit', () => {
     expect(createPendingRuns(plan).map(run => run.unit.id)).toEqual(['unit-1', 'unit-2'])
   })
@@ -78,7 +92,7 @@ describe('generation orchestration', () => {
     responses.generate
       .mockRejectedValueOnce(new Error('Context exceeded'))
       .mockResolvedValueOnce({
-        text: 'FRONT:\nQuestion?\nBACK:\nAnswer.\nEXTRA:\nMore.\nDIFFICULTY: 5/10\nTAGS: Topic',
+        text: 'FRONT:\nQuestion?\nBACK:\nAnswer.\nEXTRA:\nMore.\nDIFFICULTY: 5/10\nTAGS: Computer Science::Document Structure, Operating Systems::Process States, <StudyProgram>::<Course>::<Chapter>, Process Lifecycle, CPU Virtualization, ignored fourth tag',
         raw: {},
       })
 
@@ -97,7 +111,64 @@ describe('generation orchestration', () => {
 
     expect(runs.map(run => run.status)).toEqual(['failed', 'succeeded'])
     expect(runs[1].cards).toHaveLength(1)
-    expect(runs[1].cards[0].tags).toContain('source::Book')
-    expect(runs[1].cards[0].tags).toContain('chapter::Two')
+    expect(runs[1].cards[0].tags).toEqual([
+      'operating_systems::process_states',
+      'process_lifecycle',
+      'cpu_virtualization',
+      'source::Book',
+      'chapter::Two',
+    ])
+    expect(pdf.createSession).toHaveBeenCalledOnce()
+    expect(pdf.render).toHaveBeenCalledTimes(2)
+    expect(pdf.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('stops one chapter while continuing the remaining queue', async () => {
+    const controller = new GenerationController()
+    controller.stopSection('section-1')
+    responses.generate.mockResolvedValue({
+      text: 'FRONT:\nQuestion?\nBACK:\nAnswer.\nDIFFICULTY: 5/10',
+      raw: {},
+    })
+
+    const runs = await runGeneration({
+      plan,
+      documents: [document],
+      config: {
+        provider: 'openai-compatible',
+        apiKey: '',
+        baseUrl: 'http://localhost/v1',
+        model: 'model',
+      },
+      cardType: 'BASIC',
+      coverage: 'balanced',
+      controller,
+    })
+
+    expect(runs.map(run => run.status)).toEqual(['stopped', 'succeeded'])
+    expect(runs[0].stopReason).toBe('section')
+  })
+
+  it('keeps an explicit chapter stop distinct from a later global stop', async () => {
+    const controller = new GenerationController()
+    controller.stopSection('section-1')
+    controller.stopAll()
+
+    const runs = await runGeneration({
+      plan,
+      documents: [document],
+      config: {
+        provider: 'openai-compatible',
+        apiKey: '',
+        baseUrl: 'http://localhost/v1',
+        model: 'model',
+      },
+      cardType: 'BASIC',
+      coverage: 'balanced',
+      controller,
+    })
+
+    expect(runs.map(run => run.status)).toEqual(['stopped', 'stopped'])
+    expect(runs.map(run => run.stopReason)).toEqual(['section', 'all'])
   })
 })

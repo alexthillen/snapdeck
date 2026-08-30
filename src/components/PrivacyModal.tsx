@@ -9,9 +9,9 @@ export default function PrivacyModal({ opened, onClose }: PrivacyModalProps) {
   return (
     <Modal opened={opened} onClose={onClose} title="Privacy Policy" size="lg">
       <Stack gap="md">
-        <Text size="sm" c="dimmed">Last Updated: {new Date().toLocaleDateString()}</Text>
+        <Text size="sm" c="dimmed">Last updated: August 30, 2026</Text>
         
-        <Title order={4}>1. No Data Collection</Title>
+        <Title order={4}>1. Local Document Processing</Title>
         <Text size="sm">
           SnapDeck operates as a purely client-side application. We do not have a backend server, 
           and we do not collect, store, or view your uploaded files, generated decks, or API keys.
@@ -28,15 +28,29 @@ export default function PrivacyModal({ opened, onClose }: PrivacyModalProps) {
         <Title order={4}>3. Third-Party Processing</Title>
         <Text size="sm">
           To generate flashcards, your content is sent directly from your
-          browser to your selected provider. Gemini receives the PDF itself.
-          OpenAI-compatible endpoints receive text and rendered page images
-          produced from the PDF in your browser. If you use Gemini, you agree
+          browser to your selected provider. Both Gemini and OpenAI-compatible
+          endpoints receive extracted text and rendered page images produced
+          from the PDF in your browser. The original PDF file is not uploaded.
+          If you use Gemini, you agree
           to Google&apos;s{' '}
           <Anchor href="https://ai.google.dev/gemini-api/terms" target="_blank">
             Terms of Service
           </Anchor>{' '}
           and{' '}
           <Anchor href="https://policies.google.com/privacy" target="_blank">
+            Privacy Policy
+          </Anchor>
+          .
+        </Text>
+
+        <Title order={4}>4. Anonymous Usage Analytics</Title>
+        <Text size="sm">
+          SnapDeck may use Cloudflare Web Analytics to count page views and
+          measure page performance. Cloudflare describes this service as
+          privacy-first: it does not use cookies, local storage, or individual
+          fingerprinting. Analytics never include your PDFs, generated cards,
+          prompts, or API keys. See Cloudflare&apos;s{' '}
+          <Anchor href="https://www.cloudflare.com/privacypolicy/" target="_blank">
             Privacy Policy
           </Anchor>
           .

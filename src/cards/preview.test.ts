@@ -4,6 +4,7 @@ import type { DraftCard } from '../generation/types'
 
 const clozeCard: DraftCard = {
   id: 'card-1',
+  unitId: 'unit-1',
   cardType: 'CLOZE',
   front: 'The capital is {{c1::Bern::city}} and $x^2$.',
   back: null,

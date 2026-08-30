@@ -30,7 +30,12 @@ print("Hello World!)
 * Use the language used in the attached document.
 * Never embed math inside code. Don't write `x $=$ v`, but instead write $x = v$
 * You can only use latex symbols inside a math inline or display equation. You cannot use latex math inside a code block e.g. ```\leftarrow``` is invalid!
-* Tags are created in the format <StudyProgram>::<Course>::<Chapter>. There are up to 3 tags per card.
+* SnapDeck automatically adds source and chapter provenance tags. In TAGS, add only useful **semantic topic tags** that complement that provenance.
+* Use up to 3 Anki hierarchy tags per card, ordered from broad to specific with `::`, for example `computer_science::operating_systems::processes`.
+* Every hierarchy component must be lowercase `snake_case`, without spaces or angle-bracket placeholders. Prefer one precise hierarchy; add another only for a genuinely distinct cross-cutting topic.
+* Never emit generic placeholders such as `<StudyProgram>`, `<Course>`, or `<Chapter>`, and do not repeat source or chapter tags.
+* Tag the **concept being tested**, not document structure. Avoid generic labels such as `topic`, `introduction`, `overview`, `part_i`, `chapter`, or `section`. If the source contains no meaningful concept to tag, leave TAGS empty.
+* Prefer an established domain hierarchy over disconnected words: `computer_science::operating_systems::virtualization`, not `computing, topic, part_i`.
 * IMPORTANT: Under no circumstances should you use the examples provided below to generate cards. They should only help you to grasp the format, but not guide the topic of the resulting flashcards. Only refer to the uploaded document when generating cards!
 * Never repeat questions. All questions should differ.
 
@@ -58,7 +63,7 @@ EXTRA:
 
 DIFFICULTY: (estimated difficulty of answering the card in the format : 1-10/10)
 
-TAGS: (comma-separated Tags associated with the card in the format <StudyProgram>::<Course>::<Chapter>)
+TAGS: (up to 3 comma-separated semantic Anki tags, broad-to-specific with `::` and lowercase `snake_case`; source and chapter tags are added automatically)
 
 ---
 

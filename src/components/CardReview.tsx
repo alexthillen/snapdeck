@@ -11,6 +11,7 @@ import {
   SimpleGrid,
   Stack,
   Switch,
+  TagsInput,
   Text,
   TextInput,
   Textarea,
@@ -21,6 +22,7 @@ import { IconArrowLeft, IconArrowRight } from '@tabler/icons-react'
 import type { DraftCard } from '../generation/types'
 import { cardPreview } from '../cards/preview'
 import Markdown from './Markdown'
+import { normaliseAnkiTag } from '../utils/ankiTags'
 
 type CardReviewProps = {
   cards: DraftCard[]
@@ -173,11 +175,15 @@ export function CardReview({ cards, onCardsChange }: CardReviewProps) {
               value={selected.difficulty}
               onChange={event => update({ difficulty: event.currentTarget.value })}
             />
-            <TextInput
+            <TagsInput
               label="Tags"
-              value={selected.tags.join(', ')}
-              onChange={event => update({
-                tags: event.currentTarget.value.split(',').map(tag => tag.trim()).filter(Boolean),
+              description="Comma-separated; spaces become underscores. Use :: for hierarchy."
+              value={selected.tags}
+              splitChars={[',']}
+              onChange={values => update({
+                tags: values
+                  .map(normaliseAnkiTag)
+                  .filter((tag): tag is string => Boolean(tag)),
               })}
             />
           </SimpleGrid>

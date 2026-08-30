@@ -1,6 +1,6 @@
 export type LlmProvider = 'gemini' | 'openai-compatible'
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash'
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.7-flash'
 export const DEFAULT_OPENAI_BASE_URL = 'http://127.0.0.1:8100/v1'
 export const DEFAULT_OPENAI_MODEL =
   'mlx-community/gemma-4-E4B-it-qat-4bit'

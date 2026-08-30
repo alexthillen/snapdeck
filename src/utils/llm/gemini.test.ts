@@ -21,7 +21,7 @@ describe('generateWithGemini', () => {
       {
         provider: 'gemini',
         apiKey: 'secret',
-        model: 'gemini-3.6-flash',
+        model: 'gemini-3.7-flash',
       },
       [
         {
@@ -36,7 +36,7 @@ describe('generateWithGemini', () => {
     expect(result.text).toBe('cards')
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toContain('/models/gemini-3.6-flash:generateContent')
+    expect(url).toContain('/models/gemini-3.7-flash:generateContent')
     expect(init.headers).toEqual({
       'Content-Type': 'application/json',
       'x-goog-api-key': 'secret',
@@ -56,6 +56,28 @@ describe('generateWithGemini', () => {
           ],
         },
       ],
+      generationConfig: { maxOutputTokens: 32768 },
     })
+    expect(JSON.parse(init.body as string).generationConfig).not.toHaveProperty('temperature')
+    expect(JSON.parse(init.body as string).generationConfig).not.toHaveProperty('topP')
+    expect(JSON.parse(init.body as string).generationConfig).not.toHaveProperty('topK')
+  })
+
+  it('rejects a response that stopped before natural completion', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        candidates: [{
+          content: { parts: [{ text: 'partial cards' }] },
+          finishReason: 'MAX_TOKENS',
+        }],
+      }), { status: 200 })),
+    )
+
+    await expect(generateWithGemini(
+      { provider: 'gemini', apiKey: 'secret', model: 'gemini-3.7-flash' },
+      [],
+      'make cards',
+    )).rejects.toThrow('MAX_TOKENS')
   })
 })

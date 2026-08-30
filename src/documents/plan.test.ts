@@ -112,6 +112,23 @@ describe('createGenerationPlan', () => {
     expect(plan.totalCalls).toBe(6)
   })
 
+  it('splits an oversized page text layer without exceeding the input budget', () => {
+    const text = 'Dense OCR text '.repeat(3_000)
+    const plan = createGenerationPlan(
+      [document({
+        pageCount: 1,
+        pages: [{ pageIndex: 0, text, estimatedTokens: Math.ceil(text.length / 4) }],
+      })],
+      { includeSubchapters: true, coverage: 'balanced', contextTokens: 8_192 },
+    )
+
+    const units = plan.sections[0].units
+    expect(units.length).toBeGreaterThan(1)
+    expect(units.every(unit => unit.estimatedInputTokens <= Math.floor(8_192 * 0.55))).toBe(true)
+    expect(units.flatMap(unit => unit.textOverrides ?? []).map(item => item.text).join(' '))
+      .toBe(text.trim())
+  })
+
   it('keeps excluded pages explicit in the plan totals', () => {
     const initial = createGenerationPlan(
       [document()],

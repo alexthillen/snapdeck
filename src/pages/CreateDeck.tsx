@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActionIcon,
   Alert,
@@ -32,6 +32,8 @@ import {
   IconDownload,
   IconFileText,
   IconInfoCircle,
+  IconPlayerPlay,
+  IconPlayerStop,
   IconRefresh,
   IconSettings,
   IconSparkles,
@@ -52,15 +54,24 @@ import type { CardType } from '../lib/parsers'
 import {
   createPendingRuns,
   runGeneration,
-  runGenerationUnit,
 } from '../generation/runGeneration'
 import type { DraftCard, UnitRun } from '../generation/types'
+import { GenerationController } from '../generation/control'
 import { exportDraftCards } from '../utils/anki'
 
 type AnalysisError = {
   id: string
   fileName: string
   message: string
+}
+
+const mergeAnalysisErrors = (
+  current: AnalysisError[],
+  incoming: AnalysisError[],
+): AnalysisError[] => {
+  const errors = new Map(current.map(error => [error.id, error]))
+  incoming.forEach(error => errors.set(error.id, error))
+  return [...errors.values()]
 }
 
 const fileKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`
@@ -71,7 +82,25 @@ const statusColor: Record<UnitRun['status'], string> = {
   succeeded: 'green',
   'needs-review': 'yellow',
   failed: 'red',
+  stopped: 'gray',
 }
+
+const reflectRequestedStops = (
+  runs: UnitRun[],
+  controller: GenerationController,
+): UnitRun[] => runs.map(run => {
+  if (run.status !== 'pending' && run.status !== 'running') return run
+
+  const stopReason = controller.shouldStopSection(run.unit.sectionId)
+    ? 'section'
+    : controller.shouldStopAll()
+      ? 'all'
+      : undefined
+
+  return stopReason
+    ? { ...run, status: 'stopped', generatedCards: 0, stopReason }
+    : run
+})
 
 export default function CreateDeckPage() {
   const { settings, setSettings } = useLlmSettings()
@@ -87,12 +116,20 @@ export default function CreateDeckPage() {
   const [runs, setRuns] = useState<UnitRun[]>([])
   const [cards, setCards] = useState<DraftCard[]>([])
   const [generating, setGenerating] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string>()
   const [privacyOpened, setPrivacyOpened] = useState(false)
   const [modelOpened, setModelOpened] = useState(false)
+  const generationController = useRef<GenerationController | null>(null)
+  const generationEpoch = useRef(0)
 
   const resetResults = useCallback(() => {
+    generationEpoch.current += 1
+    generationController.current?.stopAll()
+    generationController.current = null
     setRuns([])
     setCards([])
+    setGenerating(false)
   }, [])
 
   const plan = useMemo(
@@ -108,15 +145,20 @@ export default function CreateDeckPage() {
 
   const analyzeFiles = useCallback(async (files: File[]) => {
     const existing = new Set(documents.map(document => fileKey(document.file)))
-    const pdfs = files.filter(
-      file => file.type === 'application/pdf' && !existing.has(fileKey(file)),
-    )
+    const pdfs = files.filter(file => {
+      const key = fileKey(file)
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
+      if (!isPdf || existing.has(key)) return false
+      existing.add(key)
+      return true
+    })
     if (!pdfs.length) {
       return
     }
 
     setAnalyzing(true)
-    resetResults()
+    const attempted = new Set(pdfs.map(fileKey))
+    setAnalysisErrors(current => current.filter(error => !attempted.has(error.id)))
     const added: AnalyzedDocument[] = []
     const failures: AnalysisError[] = []
     for (const file of pdfs) {
@@ -131,17 +173,17 @@ export default function CreateDeckPage() {
       }
     }
     setDocuments(current => [...current, ...added])
-    setAnalysisErrors(current => [...current, ...failures])
+    setAnalysisErrors(current => mergeAnalysisErrors(current, failures))
     if (!deckName.trim() && added.length) {
       setDeckName(added[0].title)
     }
     setAnalyzing(false)
-  }, [deckName, documents, resetResults])
+  }, [deckName, documents])
 
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
       const files = Array.from(event.clipboardData?.files ?? [])
-      if (files.some(file => file.type === 'application/pdf')) {
+      if (files.some(file => file.type === 'application/pdf' || /\.pdf$/i.test(file.name))) {
         event.preventDefault()
         void analyzeFiles(files)
       }
@@ -155,82 +197,204 @@ export default function CreateDeckPage() {
     resetResults()
   }
 
-  const toggleSection = (id: string, included: boolean) => {
+  const setSectionsIncluded = (ids: string[], included: boolean) => {
     setExcludedSectionIds(current => {
       const next = new Set(current)
-      if (included) next.delete(id)
-      else next.add(id)
+      ids.forEach(id => {
+        if (included) next.delete(id)
+        else next.add(id)
+      })
       return next
     })
     resetResults()
   }
 
-  const updateCardsFromRuns = (nextRuns: UnitRun[]) => {
-    setCards(nextRuns.flatMap(run => run.cards))
+  const toggleSection = (id: string, included: boolean) => {
+    setSectionsIncluded([id], included)
   }
 
-  const startGeneration = async () => {
-    if (!deckName.trim() || !plan.totalCalls || !isLlmConfigReady(llmConfig)) {
-      return
-    }
+  const updateCardsFromRuns = (nextRuns: UnitRun[]) => {
+    setCards(current => {
+      const edited = new Map(current.map(card => [card.id, card]))
+      return nextRuns.flatMap(run =>
+        run.cards.map(card => edited.get(card.id) ?? card),
+      )
+    })
+  }
+
+  const executeRuns = async (initialRuns: UnitRun[]) => {
+    const controller = new GenerationController()
+    const epoch = generationEpoch.current + 1
+    generationEpoch.current = epoch
+    generationController.current = controller
     setGenerating(true)
-    const pending = createPendingRuns(plan)
-    setRuns(pending)
-    setCards([])
+    setRuns(initialRuns)
+
     const completed = await runGeneration({
       plan,
       documents,
       config: llmConfig,
       cardType,
       coverage,
+      initialRuns,
+      controller,
       onUpdate: nextRuns => {
-        setRuns(nextRuns)
-        updateCardsFromRuns(nextRuns)
+        if (generationEpoch.current !== epoch) return
+        const visibleRuns = reflectRequestedStops(nextRuns, controller)
+        setRuns(visibleRuns)
+        updateCardsFromRuns(visibleRuns)
       },
     })
-    setRuns(completed)
-    updateCardsFromRuns(completed)
+
+    if (generationEpoch.current !== epoch) return
+    const visibleRuns = reflectRequestedStops(completed, controller)
+    setRuns(visibleRuns)
+    updateCardsFromRuns(visibleRuns)
+    generationController.current = null
     setGenerating(false)
   }
 
-  const retryRun = async (run: UnitRun) => {
-    const section = plan.sections.find(candidate => candidate.id === run.unit.sectionId)
-    const document = documents.find(candidate => candidate.id === run.unit.documentId)
-    if (!section || !document) return
+  const startGeneration = async () => {
+    if (!deckName.trim() || !plan.totalCalls || !isLlmConfigReady(llmConfig)) {
+      return
+    }
+    const pending = createPendingRuns(plan)
+    setCards([])
+    await executeRuns(pending)
+  }
 
-    setRuns(current => current.map(candidate =>
-      candidate.unit.id === run.unit.id ? { ...candidate, status: 'running' } : candidate,
+  const exportCards = async () => {
+    setExporting(true)
+    setExportError(undefined)
+    try {
+      await exportDraftCards(deckName, cards)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const stopAllGeneration = () => {
+    generationController.current?.stopAll()
+    setRuns(current => current.map(run =>
+      run.status === 'pending' || run.status === 'running'
+        ? { ...run, status: 'stopped', generatedCards: 0, stopReason: 'all' }
+        : run,
     ))
-    const retried = await runGenerationUnit({
-      unit: run.unit,
-      section,
-      document,
-      config: llmConfig,
-      cardType,
-      coverage,
-    })
-    const nextRuns = runs.map(candidate =>
-      candidate.unit.id === retried.unit.id ? retried : candidate,
+  }
+
+  const stopSectionGeneration = (sectionId: string) => {
+    generationController.current?.stopSection(sectionId)
+    setRuns(current => current.map(run =>
+      run.unit.sectionId === sectionId &&
+      (run.status === 'pending' || run.status === 'running')
+        ? { ...run, status: 'stopped', generatedCards: 0, stopReason: 'section' }
+        : run,
+    ))
+  }
+
+  const resumeGeneration = async () => {
+    const resumed = runs.map(run =>
+      run.status === 'stopped' && run.stopReason === 'all'
+        ? {
+            ...run,
+            status: 'pending' as const,
+            generatedCards: 0,
+            stopReason: undefined,
+          }
+        : run,
     )
-    setRuns(nextRuns)
-    const editedCards = new Map(cards.map(card => [card.id, card]))
-    setCards(
-      nextRuns.flatMap(candidate =>
-        candidate.cards.map(card =>
-          candidate.unit.id === retried.unit.id
-            ? card
-            : editedCards.get(card.id) ?? card,
-        ),
-      ),
+    await executeRuns(resumed)
+  }
+
+  const restartSection = async (sectionId: string) => {
+    if (generating) return
+    const unitIds = new Set(
+      runs
+        .filter(run => run.unit.sectionId === sectionId)
+        .map(run => run.unit.id),
     )
+    const restarted = runs.map(run =>
+      run.unit.sectionId === sectionId
+        ? {
+            ...run,
+            status: 'pending' as const,
+            cards: [],
+            generatedCards: 0,
+            parseIssues: [],
+            rawResponse: undefined,
+            error: undefined,
+            stopReason: undefined,
+          }
+        : run,
+    )
+    setCards(current => current.filter(card => !unitIds.has(card.unitId)))
+    await executeRuns(restarted)
   }
 
   const completedRuns = runs.filter(run =>
     run.status === 'succeeded' || run.status === 'needs-review' || run.status === 'failed',
   ).length
+  const runTargetCards = runs.reduce((sum, run) => sum + run.unit.targetCards, 0)
+  const stoppedRuns = runs.filter(run => run.status === 'stopped')
   const failedRuns = runs.filter(run => run.status === 'failed')
   const includedCards = cards.filter(card => card.included)
   const hasOutline = documents.some(document => document.outline.length > 0)
+  const chapterRuns = useMemo(() => {
+    const grouped = new Map<string, UnitRun[]>()
+    runs.forEach(run => {
+      const sectionRuns = grouped.get(run.unit.sectionId) ?? []
+      sectionRuns.push(run)
+      grouped.set(run.unit.sectionId, sectionRuns)
+    })
+
+    return Array.from(grouped.entries()).map(([sectionId, sectionRuns]) => {
+      const status: UnitRun['status'] = sectionRuns.some(run => run.status === 'running')
+        ? 'running'
+        : sectionRuns.some(run => run.status === 'pending')
+          ? 'pending'
+          : sectionRuns.some(run => run.status === 'stopped')
+            ? 'stopped'
+            : sectionRuns.some(run => run.status === 'failed')
+              ? 'failed'
+              : sectionRuns.some(run => run.status === 'needs-review')
+                ? 'needs-review'
+                : 'succeeded'
+      return {
+        sectionId,
+        title: sectionRuns[0].sectionTitle,
+        documentTitle: sectionRuns[0].documentTitle,
+        runs: sectionRuns,
+        status,
+        targetCards: sectionRuns.reduce((sum, run) => sum + run.unit.targetCards, 0),
+        generatedCards: sectionRuns.reduce(
+          (sum, run) => sum + (
+            run.status === 'running' ? (run.generatedCards ?? 0) : run.cards.length
+          ),
+          0,
+        ),
+        startPage: Math.min(...sectionRuns.map(run => run.unit.range.start + 1)),
+        endPage: Math.max(...sectionRuns.map(run => run.unit.range.end)),
+        parseIssues: sectionRuns.reduce((sum, run) => sum + run.parseIssues.length, 0),
+        error: sectionRuns.find(run => run.error)?.error,
+      }
+    })
+  }, [runs])
+  const generationProgress = runs.length
+    ? runs.reduce((sum, run) => {
+        if (
+          run.status === 'succeeded' ||
+          run.status === 'needs-review' ||
+          run.status === 'failed'
+        ) return sum + 1
+        if (run.status === 'running') {
+          return sum + Math.min((run.generatedCards ?? 0) / Math.max(run.unit.targetCards, 1), 0.95)
+        }
+        return sum
+      }, 0) / runs.length * 100
+    : 0
+  const canResume = stoppedRuns.some(run => run.stopReason === 'all')
 
   return (
     <Box className="app-background">
@@ -248,7 +412,6 @@ export default function CreateDeckPage() {
           settings={settings}
           onSettingsChange={value => {
             setSettings(value)
-            resetResults()
           }}
         />
       </Modal>
@@ -293,7 +456,14 @@ export default function CreateDeckPage() {
             </Group>
               <Dropzone
                 onDrop={files => void analyzeFiles(files)}
-                onReject={() => undefined}
+                onReject={rejections => setAnalysisErrors(current => mergeAnalysisErrors(
+                  current,
+                  rejections.map(({ file }) => ({
+                    id: fileKey(file),
+                    fileName: file.name,
+                    message: 'Choose a PDF file.',
+                  })),
+                ))}
                 accept={PDF_MIME_TYPE}
                 multiple
                 disabled={analyzing || generating}
@@ -389,6 +559,7 @@ export default function CreateDeckPage() {
               <Stack gap="md">
                 {documents.map(document => {
                   const sections = plan.sections.filter(section => section.documentId === document.id)
+                  const hasIncludedSections = sections.some(section => section.included)
                   return (
                     <Paper key={document.id} radius="md" p="md" className="document-plan">
                       <Group justify="space-between" mb="sm">
@@ -401,28 +572,62 @@ export default function CreateDeckPage() {
                             </Text>
                           </div>
                         </Group>
-                        <Tooltip label="Remove document">
-                          <ActionIcon variant="subtle" color="gray" onClick={() => removeDocument(document.id)}>
-                            <IconTrash size={17} />
-                          </ActionIcon>
-                        </Tooltip>
+                        <Group gap="xs">
+                          <Button
+                            variant="subtle"
+                            color="gray"
+                            size="compact-xs"
+                            onClick={() => setSectionsIncluded(
+                              sections.map(section => section.id),
+                              !hasIncludedSections,
+                            )}
+                          >
+                            {hasIncludedSections ? 'Deselect all' : 'Select all'}
+                          </Button>
+                          <Tooltip label="Remove document">
+                            <ActionIcon variant="subtle" color="gray" onClick={() => removeDocument(document.id)}>
+                              <IconTrash size={17} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
                       </Group>
                       <Divider mb="xs" />
-                      <Stack gap={4}>
-                        {sections.map(section => (
-                          <Group key={section.id} justify="space-between" wrap="nowrap" className="plan-row">
-                            <Checkbox
-                              checked={section.included}
-                              onChange={event => toggleSection(section.id, event.currentTarget.checked)}
-                              label={section.path.join(' › ')}
-                            />
-                            <Group gap="xs" wrap="nowrap">
-                              <Text size="xs" c="dimmed">pp. {section.range.start + 1}–{section.range.end}</Text>
-                              <Badge size="xs" variant="outline">≈{section.targetCards}</Badge>
-                              {section.units.length > 1 && <Badge size="xs" color="orange">{section.units.length} calls</Badge>}
-                            </Group>
-                          </Group>
-                        ))}
+                      <Stack gap={2} className="section-list-scroll">
+                        {sections.map(section => {
+                          const sectionPath = section.path.join(' › ')
+                          return (
+                            <Box key={section.id} className="plan-row">
+                              <Checkbox
+                                checked={section.included}
+                                onChange={event => toggleSection(section.id, event.currentTarget.checked)}
+                                aria-label={sectionPath}
+                              />
+                              <Tooltip label={sectionPath} openDelay={450} multiline maw={420}>
+                                <Text
+                                  className="plan-row-title"
+                                  size="sm"
+                                  fw={500}
+                                  tabIndex={0}
+                                >
+                                  {sectionPath}
+                                </Text>
+                              </Tooltip>
+                              <Text className="plan-row-pages" size="xs" c="dimmed">
+                                pp. {section.range.start + 1}–{section.range.end}
+                              </Text>
+                              <Badge className="plan-row-cards" size="xs" variant="outline">
+                                ≈{section.targetCards}
+                              </Badge>
+                              <Box className="plan-row-calls">
+                                {section.units.length > 1 && (
+                                  <Tooltip label={`${section.units.length} model calls`}>
+                                    <Badge size="xs" color="orange">{section.units.length} calls</Badge>
+                                  </Tooltip>
+                                )}
+                              </Box>
+                            </Box>
+                          )
+                        })}
                       </Stack>
                     </Paper>
                   )
@@ -453,35 +658,92 @@ export default function CreateDeckPage() {
               <Group justify="space-between" mb="md">
                 <div>
                   <Text fw={700}>3 · Generate by section</Text>
-                  <Text size="sm" c="dimmed">Successful sections stay available if another section fails.</Text>
+                  <Text size="sm" c="dimmed">Completed chapters stay available when you stop, resume, or restart another chapter.</Text>
                 </div>
-                <Badge color={generating ? 'indigo' : failedRuns.length ? 'orange' : 'green'}>
-                  {completedRuns}/{runs.length} complete
-                </Badge>
+                <Group gap="xs">
+                  <Badge color={generating ? 'indigo' : failedRuns.length ? 'orange' : 'green'}>
+                    {cards.length}/≈{runTargetCards} cards · {completedRuns}/{runs.length} calls
+                  </Badge>
+                  {generating ? (
+                    <Button
+                      size="compact-sm"
+                      color="red"
+                      variant="light"
+                      leftSection={<IconPlayerStop size={15} />}
+                      onClick={stopAllGeneration}
+                    >
+                      Stop all
+                    </Button>
+                  ) : canResume ? (
+                    <Button
+                      size="compact-sm"
+                      variant="light"
+                      leftSection={<IconPlayerPlay size={15} />}
+                      onClick={() => void resumeGeneration()}
+                    >
+                      Resume remaining
+                    </Button>
+                  ) : null}
+                </Group>
               </Group>
-              <Progress value={(completedRuns / runs.length) * 100} animated={generating} mb="md" />
-              <Stack gap="xs">
-                {runs.map(run => (
-                  <Group key={run.unit.id} justify="space-between" className="run-row">
-                    <div>
-                      <Text size="sm" fw={600}>{run.documentTitle} · {run.sectionTitle}</Text>
-                      <Text size="xs" c="dimmed">
-                        pages {run.unit.range.start + 1}–{run.unit.range.end} · target ≈{run.unit.targetCards}
-                        {run.error ? ` · ${run.error}` : ''}
-                        {run.parseIssues.length
-                          ? ` · ${run.parseIssues.length} response block${run.parseIssues.length === 1 ? '' : 's'} could not be parsed`
-                          : ''}
-                      </Text>
-                    </div>
-                    <Group gap="xs">
-                      <Badge color={statusColor[run.status]} variant="light">{run.status}</Badge>
-                      {(run.status === 'failed' || run.status === 'needs-review') && !generating && (
-                        <ActionIcon variant="light" onClick={() => void retryRun(run)}>
-                          <IconRefresh size={16} />
-                        </ActionIcon>
-                      )}
+              <Progress value={generationProgress} animated={generating} mb="md" />
+              <Stack gap="sm">
+                {chapterRuns.map(chapter => (
+                  <Paper key={chapter.sectionId} withBorder radius="md" p="sm" className="chapter-run">
+                    <Group justify="space-between" align="flex-start" wrap="nowrap">
+                      <div>
+                        <Text size="sm" fw={650}>{chapter.documentTitle} · {chapter.title}</Text>
+                        <Text size="xs" c="dimmed">
+                          pages {chapter.startPage}–{chapter.endPage} · {chapter.generatedCards}/≈{chapter.targetCards} cards
+                          {chapter.runs.length > 1 ? ` · ${chapter.runs.length} calls` : ''}
+                          {chapter.error ? ` · ${chapter.error}` : ''}
+                          {chapter.parseIssues
+                            ? ` · ${chapter.parseIssues} malformed card block${chapter.parseIssues === 1 ? '' : 's'}`
+                            : ''}
+                        </Text>
+                      </div>
+                      <Group gap="xs" wrap="nowrap">
+                        <Badge color={statusColor[chapter.status]} variant="light">
+                          {chapter.status.replace('-', ' ')}
+                        </Badge>
+                        {generating && chapter.runs.some(run =>
+                          run.status === 'running' || run.status === 'pending'
+                        ) ? (
+                          <Button
+                            size="compact-xs"
+                            color="red"
+                            variant="subtle"
+                            leftSection={<IconPlayerStop size={14} />}
+                            onClick={() => stopSectionGeneration(chapter.sectionId)}
+                          >
+                            Stop
+                          </Button>
+                        ) : !generating ? (
+                          <Button
+                            size="compact-xs"
+                            variant="subtle"
+                            leftSection={<IconRefresh size={14} />}
+                            onClick={() => void restartSection(chapter.sectionId)}
+                          >
+                            Restart
+                          </Button>
+                        ) : null}
+                      </Group>
                     </Group>
-                  </Group>
+                    <Progress
+                      mt="xs"
+                      size="xs"
+                      color={statusColor[chapter.status]}
+                      animated={chapter.status === 'running'}
+                      value={
+                        chapter.status === 'succeeded' ||
+                        chapter.status === 'needs-review' ||
+                        chapter.status === 'failed'
+                          ? 100
+                          : Math.min(chapter.generatedCards / Math.max(chapter.targetCards, 1) * 100, 95)
+                      }
+                    />
+                  </Paper>
                 ))}
               </Stack>
             </Paper>
@@ -495,13 +757,19 @@ export default function CreateDeckPage() {
                   {failedRuns.length} section call{failedRuns.length === 1 ? '' : 's'} failed. Retry them above, or export the explicitly included cards without those sections.
                 </Alert>
               )}
+              {exportError && (
+                <Alert color="red" mt="lg" title="Could not export deck">
+                  {exportError}
+                </Alert>
+              )}
               <Group justify="flex-end" mt="lg">
                 <Button
                   size="md"
                   color="green"
                   leftSection={<IconDownload size={18} />}
-                  disabled={!includedCards.length || generating}
-                  onClick={() => exportDraftCards(deckName, cards)}
+                  disabled={!includedCards.length || generating || exporting}
+                  loading={exporting}
+                  onClick={() => void exportCards()}
                 >
                   Export {includedCards.length} cards
                 </Button>
@@ -514,6 +782,16 @@ export default function CreateDeckPage() {
             <Group gap="xs">
               <Anchor component="button" size="xs" c="dimmed" onClick={() => setPrivacyOpened(true)}>
                 Privacy
+              </Anchor>
+              <Text size="xs">·</Text>
+              <Anchor
+                size="xs"
+                c="dimmed"
+                href="https://github.com/alexthillen/snapdeck"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Source
               </Anchor>
               <Text size="xs">·</Text>
               <Anchor

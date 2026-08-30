@@ -21,6 +21,8 @@ const CARD_PATTERN = new RegExp(String.raw`^${CARD_BODY}\s*$`, 'ims')
 const CARD_BLOCK_PATTERN = new RegExp(CARD_BODY, 'gims')
 const MARKDOWN_FIELD_LABEL =
   /^([ \t]*)\*\*(FRONT|BACK|EXTRA|DIFFICULTY|TAGS):\*\*[ \t]*/gim
+const CARD_LIKE_FIELD =
+  /(?:^|\n)\s*(?:\*\*)?(?:FRONT|BACK|EXTRA|DIFFICULTY|TAGS):/im
 
 const normaliseFieldLabels = (text: string): string =>
   text.replace(MARKDOWN_FIELD_LABEL, '$1$2: ')
@@ -154,7 +156,7 @@ export class AnkiParser {
 
       if (blockStart > cursor) {
         const between = normalised.slice(cursor, blockStart).trim()
-        if (between) {
+        if (between && CARD_LIKE_FIELD.test(between)) {
           blocks.push(between)
         }
       }
@@ -169,7 +171,7 @@ export class AnkiParser {
     }
 
     const tail = normalised.slice(cursor).trim()
-    if (tail) {
+    if (tail && CARD_LIKE_FIELD.test(tail)) {
       blocks.push(tail)
     }
 
