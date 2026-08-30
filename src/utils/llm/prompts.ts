@@ -3,6 +3,12 @@ import promptCloze from '../../assets/prompts/cloze-generation.txt'
 
 export type PromptCardType = 'BASIC' | 'CLOZE'
 
+type BuildPromptOptions = {
+  targetCards: number
+  sectionTitle: string
+  coverage: string
+}
+
 const PROMPT_PATH: Record<PromptCardType, string> = {
   BASIC: promptBasic,
   CLOZE: promptCloze,
@@ -41,10 +47,12 @@ export async function loadPromptTemplate(
 
 export const buildPrompt = async (
   type: PromptCardType,
-  numCards: number,
+  options: BuildPromptOptions,
   examples = '',
 ): Promise<string> =>
   loadPromptTemplate(type, {
-    num_cards: String(numCards),
+    num_cards: String(options.targetCards),
+    section_title: options.sectionTitle,
+    coverage: options.coverage,
     card_examples: examples,
   })

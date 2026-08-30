@@ -1,21 +1,17 @@
-import { Model } from 'genanki-js'
+import { Notetype } from 'ankipack'
 import frontClozeTemplate from '../../assets/templates/front_cloze.html?raw'
 import backClozeTemplate from '../../assets/templates/back_cloze.html?raw'
-const MODEL_CLOZE = 1
-export const ClozeCardModel = new Model({
+export const ClozeCardNotetype = new Notetype({
   name: 'SnapDeck : Cloze',
-  id: '1276888191', // Unique model ID
-  flds: [{ name: 'Text' }, { name: 'Back Extra' }, { name: 'Difficulty' }],
-  req: [
-    [0, 'all', [0]], // Card will be generated only if Front field is non-empty
-  ],
-  tmpls: [
+  id: 1276888191,
+  type: 'cloze',
+  fields: [{ name: 'Text' }, { name: 'Back Extra' }, { name: 'Difficulty' }],
+  templates: [
     {
       name: 'SnapDeck : Cloze Card',
-      qfmt: frontClozeTemplate,
-      afmt: backClozeTemplate,
+      questionFormat: frontClozeTemplate,
+      answerFormat: backClozeTemplate,
     },
   ],
-  css: ``,
-  type: MODEL_CLOZE,
+  css: '',
 })

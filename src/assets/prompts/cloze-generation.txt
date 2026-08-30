@@ -1,6 +1,6 @@
 ## Instructions
 
-You are an expert educator. Create **Anki cloze deletion flashcards** for the following PDF. The number of cards should be {num_cards}.
+You are an expert educator. Create approximately **{num_cards} Anki cloze deletion flashcards** from the document section **{section_title}**. Use **{coverage}** coverage: prioritize important concepts and return fewer cards when the source does not justify the estimate.
 
 ### Flashcard Quality
 * Flashcards must be **well-suited for spaced repetition**: concise and atomic.
@@ -15,7 +15,7 @@ You are an expert educator. Create **Anki cloze deletion flashcards** for the fo
 * The attached PDF might include off-topic sections such as course organization details. Please focus only on the relevant content.
 * Use the language from the attached document.
 * **Cloze deletion syntax**: Use {{c1::hidden_text}} for basic cloze and {{c1::hidden_text::hint_text}} for cloze with hints. 
-    * c1, c2, etc., create separate review cards. There can be multiple ci on a single card, e.g. 3x {{c1::cloze1}}, {{c1::cloze2}}, {{c1::cloze3}}.
+    * c1, c2, etc., create separate review cards. There can be multiple c1 deletions on a single card, e.g. 3x {{c1::cloze1}}, {{c1::cloze2}}, {{c1::cloze3}}.
 * Individual fields **can and should use Markdown** for syntax highlighting (e.g., code blocks, inline code, bold text). Be encouraged to make use of these features! Look at the examples.
 * **Math** must be correctly displayed using Markdown inline math ($) and equations ($$) and latex. This is very important.
     * The equation marks should correctly surround the entire relevant expression. E.g. writing "H$_2$O" is invalid, while writing $H_2O$ or $\text{{H}}_2\text{{O}}$ are both valid.
@@ -23,10 +23,10 @@ You are an expert educator. Create **Anki cloze deletion flashcards** for the fo
     Incorrect: $\mathbb{E}_{\Theta_k}[||f(y_{k-1}, \Theta_k)||^2] = {{c2::||y_{k-1}||^2}}$ --> 
     Correct: {{c2::$\mathbb{E}_{\Theta_k}[||f(y_{k-1}, \Theta_k)||^2] = ||y_{k-1}||^2$::$\mathbb{E}_{\Theta_k}[||f(y_{k-1}, \Theta_k)||^2] = ...$}}
     This is also correct for displaying math: {{c3::$$\mathbb{E}_{\Theta_k}[f(y_{k-1}, \Theta_k)] = 0$$::$$\mathbb{E}_{\Theta_k}[f(y_{k-1}, \Theta_k)] = ...$$}}
-    The cloze part is replace by ..., but the rest is repeated.
+    The cloze part is replaced by ..., but the rest is repeated.
 * You can use clozes inside code blocks, e.g. 
 ```python
-{c1::print}("Hello World")
+{{c1::print}}("Hello World")
 ```
 * **Code** must be correctly displayed using Markdown inline code (`inline code`) or code blocks (```[lang]```).
 * **Escape Markdown characters** when they are content, not markup (e.g., "I need a \$" for "I need a $").
@@ -39,6 +39,12 @@ You are an expert educator. Create **Anki cloze deletion flashcards** for the fo
 * Never use code fences (```)/blocks or inline code (`) on anything that is not code!
 * If extra information aids memorization, add it to the EXTRA field.
 * Never embed math inside code. Don't write `x $=$ v`, but instead write $x = v$
+* SnapDeck automatically adds source and chapter provenance tags. In TAGS, add only useful **semantic topic tags** that complement that provenance.
+* Use up to 3 Anki hierarchy tags per card, ordered from broad to specific with `::`, for example `computer_science::operating_systems::processes`.
+* Every hierarchy component must be lowercase `snake_case`, without spaces or angle-bracket placeholders. Prefer one precise hierarchy; add another only for a genuinely distinct cross-cutting topic.
+* Never emit generic placeholders such as `<StudyProgram>`, `<Course>`, or `<Chapter>`, and do not repeat source or chapter tags.
+* Tag the **concept being tested**, not document structure. Avoid generic labels such as `topic`, `introduction`, `overview`, `part_i`, `chapter`, or `section`. If the source contains no meaningful concept to tag, leave TAGS empty.
+* Prefer an established domain hierarchy over disconnected words: `computer_science::operating_systems::virtualization`, not `computing, topic, part_i`.
 * IMPORTANT: The hint should **never** reveal the hidden text directly, you must not write the answer into the hint field of a cloze deletion. You are encouraged to leave out the hint, but if you add a hint, it should clarify what is requested, but never reveal the answer!
 * IMPORTANT: Under no circumstances should you use the examples provided below to generate cards. They should only help you to grasp the format, but not guide the topic of the resulting flashcards. Only refer to the uploaded document when generating cards!
 * Never repeat questions. All questions should differ.
@@ -61,7 +67,7 @@ EXTRA:
 
 DIFFICULTY: (estimated difficulty of answering the card in the format : 1-10/10)
 
-TAGS: (comma-separated Tags associated with the card in the format <StudyProgram>::<Course>::<Chapter>. Up to 3 tags per card.)
+TAGS: (up to 3 comma-separated semantic Anki tags, broad-to-specific with `::` and lowercase `snake_case`; source and chapter tags are added automatically)
 
 -----
 

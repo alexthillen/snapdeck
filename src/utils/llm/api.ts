@@ -1,120 +1,31 @@
-const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
-const DEFAULT_MODEL = 'gemini-3-flash-preview'
+import type { LlmConfig } from './config'
+import type { PdfPageInput } from './document'
+import { generateWithGemini } from './gemini'
+import { generateWithOpenAiResponses } from './openAiResponses'
 
-export interface GeminiGenerateOptions {
-  apiKey: string
-  base64Document: string
+export type GenerateCardsOptions = {
+  config: LlmConfig
+  pages: PdfPageInput[]
   prompt: string
-  model?: string
-  temperature?: number
-  topP?: number
-  topK?: number
-  maxOutputTokens?: number
+  signal?: AbortSignal
+  onText?: (text: string) => void
 }
 
-export interface GeminiResponse {
+export type LlmResponse = {
   text: string
   raw: unknown
 }
 
-const buildUrl = (model: string) =>
-  `${GEMINI_BASE_URL}/models/${model}:generateContent`
-
-type GeminiPart = {
-  text?: string
-  [key: string]: unknown
-}
-
-type GeminiCandidate = {
-  content?: {
-    parts?: GeminiPart[]
-  }
-}
-
-const extractText = (payload: unknown): string => {
-  const candidates = (payload as { candidates?: GeminiCandidate[] })?.candidates
-  if (!Array.isArray(candidates)) {
-    return ''
+export const generateCards = async ({
+  config,
+  pages,
+  prompt,
+  signal,
+  onText,
+}: GenerateCardsOptions): Promise<LlmResponse> => {
+  if (config.provider === 'gemini') {
+    return generateWithGemini(config, pages, prompt, signal)
   }
 
-  const texts: string[] = []
-
-  candidates.forEach(candidate => {
-    const parts = candidate?.content?.parts
-    if (!Array.isArray(parts)) {
-      return
-    }
-    parts.forEach(part => {
-      if (typeof part?.text === 'string') {
-        texts.push(part.text)
-      }
-    })
-  })
-
-  return texts.join('\n').trim()
-}
-
-export class GeminiClient {
-  async generateContent(
-    options: GeminiGenerateOptions,
-  ): Promise<GeminiResponse> {
-    const {
-      apiKey,
-      base64Document,
-      prompt,
-      model = DEFAULT_MODEL,
-      temperature = 0.1,
-      topP = 0.95,
-      topK = 64,
-      maxOutputTokens = 4 * 8192,
-    } = options
-
-    const response = await fetch(buildUrl(model), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: 'application/pdf',
-                  data: base64Document,
-                },
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature,
-          topP,
-          topK,
-          maxOutputTokens,
-        },
-      }),
-    })
-
-    const payload = await response.json().catch(() => ({}))
-
-    if (!response.ok) {
-      const message =
-        payload?.error?.message || `Gemini API error (${response.status})`
-      throw new Error(message)
-    }
-
-    const text = extractText(payload)
-    if (!text) {
-      throw new Error('Gemini returned an empty response')
-    }
-
-    return {
-      text,
-      raw: payload,
-    }
-  }
+  return generateWithOpenAiResponses(config, pages, prompt, { signal, onText })
 }

@@ -1,45 +1,74 @@
-import { BasicCardModel } from '../models/anki/basic'
-import { ClozeCardModel } from '../models/anki/cloze'
-import { Deck, Package } from 'genanki-js'
-import { createDatabase } from '../lib/sql'
+import { Deck, Note, Package, type Notetype } from 'ankipack'
+import { saveAs } from 'file-saver'
+import type { SqlJsStatic } from 'sql.js'
+import { BasicCardNotetype } from '../models/anki/basic'
+import { ClozeCardNotetype } from '../models/anki/cloze'
+import type { DraftCard } from '../generation/types'
+import { getSqlJs } from '../lib/sql'
+import { normaliseAnkiTag } from './ankiTags'
 
-type DeckInstance = InstanceType<typeof Deck>
-type DeckNote = Parameters<DeckInstance['addNote']>[0]
+const includedCards = (cards: DraftCard[]) => cards.filter(card => card.included)
+const CLOZE_DELETION = /\{\{c[1-9]\d*::[\s\S]*?\}\}/i
 
-export function createDeck(deckName: string) {
-  const deckId = Math.floor(Math.random() * 1e10) // Generate a random deck ID
-  return new Deck(deckId, deckName)
+const fieldsForCard = (card: DraftCard): string[] => card.cardType === 'BASIC'
+  ? [card.front, card.back ?? '', card.extra ?? '', card.difficulty]
+  : [card.front, card.extra ?? '', card.difficulty]
+
+const notetypeForCard = (card: DraftCard): Notetype => card.cardType === 'BASIC'
+  ? BasicCardNotetype
+  : ClozeCardNotetype
+
+const tagsForCard = (card: DraftCard): string[] => [...new Set(
+  card.tags
+    .map(normaliseAnkiTag)
+    .filter((tag): tag is string => Boolean(tag)),
+)]
+
+const guidForCard = (card: DraftCard): string => {
+  const value = [card.cardType, ...fieldsForCard(card)].join('\u001f')
+  let hash = 0xcbf29ce484222325n
+
+  for (const byte of new TextEncoder().encode(value)) {
+    hash ^= BigInt(byte)
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n)
+  }
+
+  return hash.toString(36)
 }
 
-export function addCardToDeck(
-  deck: DeckInstance,
-  card: DeckNote,
-  tags: string[] = [],
-) {
-  deck.addNote(card, tags)
+export async function createAnkiPackage(
+  deckName: string,
+  cards: DraftCard[],
+  SQL: SqlJsStatic,
+): Promise<Uint8Array> {
+  const name = deckName.trim()
+  const cardsToExport = includedCards(cards)
+  if (!name) throw new Error('Enter a deck name before exporting.')
+  if (!cardsToExport.length) throw new Error('Include at least one card before exporting.')
+
+  const deck = new Deck({ name, config: null })
+
+  cardsToExport.forEach(card => {
+    if (!card.front.trim()) throw new Error('Every exported card needs content on its front.')
+    if (card.cardType === 'CLOZE' && !CLOZE_DELETION.test(card.front)) {
+      throw new Error('Every Cloze card needs at least one complete {{c1::deletion}}.')
+    }
+    deck.addNote(new Note({
+      notetype: notetypeForCard(card),
+      fields: fieldsForCard(card),
+      tags: tagsForCard(card),
+      guid: guidForCard(card),
+    }))
+  })
+
+  const ankiPackage = new Package()
+  ankiPackage.addDeck(deck)
+  return ankiPackage.toUint8Array(SQL)
 }
 
-export function createBasicCard(
-  front: string,
-  back: string,
-  extra: string = '',
-  difficulty: string = '',
-): DeckNote {
-  return BasicCardModel.note([front, back, extra, difficulty])
-}
-
-export function createClozeCard(
-  text: string,
-  backExtra: string = '',
-  difficulty: string = '',
-): DeckNote {
-  return ClozeCardModel.note([text, backExtra, difficulty])
-}
-
-export function saveDeckToFile(deck: DeckInstance, filename: string) {
-  const packageApkg = new Package()
-  packageApkg.setSqlJs(createDatabase())
-  packageApkg.addDeck(deck)
-  console.log(packageApkg)
-  return packageApkg.writeToFile(filename)
+export async function exportDraftCards(deckName: string, cards: DraftCard[]): Promise<void> {
+  const name = deckName.trim()
+  const bytes = await createAnkiPackage(name, cards, await getSqlJs())
+  const filename = `${name.replace(/\s+/g, '_')}.apkg`
+  saveAs(new Blob([new Uint8Array(bytes)], { type: 'application/apkg' }), filename)
 }
